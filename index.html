@@ -201,6 +201,35 @@
   .day-col.future-col { cursor: default; opacity: 0.5; }
   .day-col.has-pending .day-num-circle:not(.today) { outline: 2px solid var(--coral); outline-offset: 2px; }
   .day-col.all-done .day-num-circle:not(.today) { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  /* NAV BAR — 5 items, tighter padding */
+  .nav-item { padding: 4px 10px; }
+
+  /* NEGOCIOS */
+  .biz-tabs { display: flex; background: var(--bg3); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+  .biz-tab { flex: 1; text-align: center; padding: 7px 0; font-size: 12px; border-radius: 8px; color: var(--text2); cursor: pointer; user-select: none; }
+  .biz-tab.active { background: var(--bg4); color: var(--text); font-weight: 500; }
+
+  .biz-item { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .biz-item-body { flex: 1; min-width: 0; }
+  .biz-item-title { font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .biz-item-meta { font-size: 11px; color: var(--text2); margin-top: 3px; }
+  .biz-item-amount { font-size: 14px; font-weight: 600; flex-shrink: 0; white-space: nowrap; text-align: right; }
+  .biz-amount-pos { color: var(--teal-light); }
+  .biz-amount-neg { color: var(--red-light); }
+  .biz-item-del { color: var(--text3); font-size: 18px; line-height: 1; padding-left: 2px; cursor: pointer; flex-shrink: 0; }
+
+  .biz-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; font-weight: 500; cursor: default; }
+  .biz-compra { background: var(--red); color: var(--red-light); }
+  .biz-venta { background: var(--teal2); color: var(--teal-light); }
+  .biz-ganancia { background: var(--amber); color: var(--amber-light); }
+  .biz-negocio-badge { background: var(--bg4); color: var(--text2); font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+  .biz-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500; cursor: pointer; }
+  .biz-status.pagado { background: var(--teal2); color: var(--teal-light); }
+  .biz-status.adeudo { background: var(--coral); color: var(--coral-light); }
+
+  .biz-date-hdr { font-size: 11px; color: var(--text3); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .biz-date-hdr:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -316,11 +345,48 @@
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
       <div style="text-align:center; margin-top:32px; padding-bottom:16px;">
-        <p style="font-size:12px;color:var(--text3)">Semana App · v1.1</p>
+        <p style="font-size:12px;color:var(--text3)">Semana App · v1.6</p>
         <p style="font-size:11px;color:var(--text3);margin-top:4px">Todos los datos se guardan en tu dispositivo</p>
       </div>
     </div>
     <nav class="nav-bar" id="nav4"></nav>
+  </div>
+
+  <!-- SCREEN: NEGOCIOS -->
+  <div class="screen" id="screen-negocios">
+    <div class="header">
+      <div class="header-left">
+        <h1>Negocios</h1>
+        <p>Compras, ventas y ganancias</p>
+      </div>
+      <div class="header-right" id="biz-sync-chip"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="biz-tabs" id="biz-tabs"></div>
+      <div class="stat-grid" id="biz-stat-grid"></div>
+      <div id="biz-cash-section"></div>
+      <div class="section-title">Registros</div>
+      <div id="biz-list-container"></div>
+      <button class="add-task-btn" onclick="openBizModal()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Nuevo registro
+      </button>
+      <div class="settings-row" onclick="exportNegociosExcel()" style="margin-top:16px">
+        <div>
+          <div class="settings-label">Exportar a Excel</div>
+          <div class="settings-sub">Descarga tus registros como respaldo (.xlsx)</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div class="settings-row" onclick="copyOrOpenCode()">
+        <div>
+          <div class="settings-label" id="biz-code-label">Código de sincronización</div>
+          <div class="settings-sub" id="biz-code-sub">Toca para configurar</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+    <nav class="nav-bar" id="nav5"></nav>
   </div>
 </div>
 
@@ -367,6 +433,68 @@
   </div>
 </div>
 
+<!-- NEW BIZ RECORD MODAL -->
+<div class="modal-overlay" id="biz-modal-overlay">
+  <div class="modal">
+    <h3>Nuevo registro</h3>
+    <select id="biz-tipo" onchange="updateBizModalFields()">
+      <option value="compra">Compra</option>
+      <option value="venta">Venta</option>
+      <option value="ganancia">Ganancia</option>
+    </select>
+    <select id="biz-negocio">
+      <option value="boneless">Boneless</option>
+      <option value="postres">Postres</option>
+    </select>
+    <input type="date" id="biz-fecha">
+    <input type="number" id="biz-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="text" id="biz-concepto" placeholder="Concepto (ej. Boneless 500g, Salsa BBQ)" maxlength="60">
+    <input type="text" id="biz-persona" placeholder="Nombre de la persona" maxlength="40">
+    <select id="biz-status">
+      <option value="pagado">Pagado</option>
+      <option value="adeudo">Adeudo</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeBizModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmAddBiz()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CASH / CARD MODAL -->
+<div class="modal-overlay" id="cash-modal-overlay">
+  <div class="modal">
+    <h3 id="cash-modal-title">Efectivo y tarjeta</h3>
+    <input type="number" id="cash-efectivo" placeholder="Efectivo ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="cash-tarjeta" placeholder="Tarjeta ($)" inputmode="decimal" step="0.01" min="0">
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeCashModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmCash()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- SYNC CODE GATE MODAL -->
+<div class="modal-overlay" id="code-gate-overlay">
+  <div class="modal">
+    <h3>Sincronizar Negocios</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Crea un código nuevo la primera vez, o escribe el código que te compartió la otra persona para ver los mismos datos.</p>
+    <input type="text" id="code-gate-input" placeholder="Código (ej. AB12CD)" maxlength="10" style="text-transform:uppercase">
+    <button class="add-task-btn" onclick="generateNewCode()" style="margin-bottom:10px">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+      Generar código nuevo
+    </button>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeCodeGateModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmCodeGate()">Conectar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const DAYS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
 const DAYS_DISPLAY = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -412,6 +540,9 @@ function getISOWeek(d) {
 let state = {
   fixedTasks: load('fixedTasks', DEFAULT_FIXED),
   weekData: load('weekData', {}),
+  negocios: load('negocios', []),
+  negocioView: load('negocioView', 'todos'),
+  efectivoTarjeta: load('efectivoTarjeta', { boneless: { efectivo: 0, tarjeta: 0 }, postres: { efectivo: 0, tarjeta: 0 } }),
   currentScreen: 'hoy'
 };
 
@@ -510,6 +641,10 @@ function renderNavBar(containerId, active) {
     <div class="nav-item ${active==='ajustes'?'active':''}" onclick="switchScreen('ajustes')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
       <span>Ajustes</span>
+    </div>
+    <div class="nav-item ${active==='negocios'?'active':''}" onclick="switchScreen('negocios')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h4v-6h6v6h4a1 1 0 001-1V9M3 9h18"/></svg>
+      <span>Negocios</span>
     </div>`;
   [containerId].forEach(id => {
     const el = document.getElementById(id);
@@ -776,6 +911,479 @@ function renderAjustes() {
   renderNavBar('nav4', 'ajustes');
 }
 
+/* ================= NEGOCIOS ================= */
+
+const BIZ_LABEL = { compra: 'Compra', venta: 'Venta', ganancia: 'Ganancia' };
+const BIZ_CLASS = { compra: 'biz-compra', venta: 'biz-venta', ganancia: 'biz-ganancia' };
+const NEG_LABEL = { boneless: 'Boneless', postres: 'Postres' };
+
+/* ====== FIREBASE (sincronización Negocios) ======
+   ⚠️ EDITA ESTO: pega aquí el firebaseConfig que copiaste de tu proyecto en
+   Firebase Console (Configuración del proyecto → Tus apps → Web). Mientras
+   diga "TU_API_KEY_AQUI" la app sigue funcionando 100% local, como antes. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCpnwKSXXxUf9J6jpHvxSX7PU79iTE2MGk",
+  authDomain: "organizacion-e7834.firebaseapp.com",
+  projectId: "organizacion-e7834",
+  storageBucket: "organizacion-e7834.firebasestorage.app",
+  messagingSenderId: "432809913762",
+  appId: "1:432809913762:web:cba8cd7583a165379dd6fb"
+};
+
+let db = null;
+let firebaseReady = false;
+let negociosCode = localStorage.getItem('negociosCode') || null;
+let fsUnsubRegistros = null;
+let fsUnsubCash = null;
+
+function firebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'TU_API_KEY_AQUI';
+}
+
+function initFirebase() {
+  if (!firebaseConfigured() || firebaseReady) return;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        firebaseReady = true;
+        updateSyncChip(null);
+        if (negociosCode) attachNegociosListeners();
+      }
+    });
+    firebase.auth().signInAnonymously().catch(err => console.error('Firebase auth error', err));
+  } catch (e) {
+    console.error('Firebase init error', e);
+  }
+}
+
+function attachNegociosListeners() {
+  if (!db || !negociosCode) return;
+  if (fsUnsubRegistros) fsUnsubRegistros();
+  if (fsUnsubCash) fsUnsubCash();
+
+  fsUnsubRegistros = db.collection('households').doc(negociosCode).collection('registros')
+    .onSnapshot(snap => {
+      state.negocios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      save('negocios', state.negocios);
+      if (state.currentScreen === 'negocios') renderNegocios();
+      updateSyncChip(true);
+    }, err => { console.error(err); updateSyncChip(false); });
+
+  fsUnsubCash = db.collection('households').doc(negociosCode).collection('meta').doc('cash')
+    .onSnapshot(snap => {
+      if (snap.exists) {
+        state.efectivoTarjeta = snap.data();
+        save('efectivoTarjeta', state.efectivoTarjeta);
+        if (state.currentScreen === 'negocios') renderNegocios();
+      }
+    }, err => console.error(err));
+}
+
+function updateSyncChip(ok) {
+  const el = document.getElementById('biz-sync-chip');
+  if (!el) return;
+  if (!negociosCode) { el.innerHTML = ''; return; }
+  if (ok === true) el.innerHTML = `<div class="chip green">Sincronizado</div>`;
+  else if (ok === false) el.innerHTML = `<div class="chip red">Sin conexión</div>`;
+  else el.innerHTML = `<div class="chip">Conectando…</div>`;
+}
+
+function openCodeGateModal() {
+  const input = document.getElementById('code-gate-input');
+  input.value = '';
+  input.dataset.isNew = '0';
+  document.getElementById('code-gate-overlay').classList.add('open');
+}
+
+function closeCodeGateModal() {
+  document.getElementById('code-gate-overlay').classList.remove('open');
+}
+
+function generateNewCode() {
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  document.getElementById('code-gate-input').value = code;
+  document.getElementById('code-gate-input').dataset.isNew = '1';
+}
+
+function confirmCodeGate() {
+  if (!firebaseConfigured()) {
+    alert('Todavía falta pegar tu configuración de Firebase en el código (FIREBASE_CONFIG). Revisa las instrucciones que te di.');
+    return;
+  }
+  const input = document.getElementById('code-gate-input');
+  const code = input.value.trim().toUpperCase();
+  if (!code || code.length < 4) { alert('Escribe o genera un código de al menos 4 caracteres.'); return; }
+  const isNew = input.dataset.isNew === '1';
+
+  negociosCode = code;
+  localStorage.setItem('negociosCode', code);
+  closeCodeGateModal();
+  updateSyncChip(null);
+
+  const attach = () => {
+    attachNegociosListeners();
+    if (isNew && (state.negocios.length > 0 || state.efectivoTarjeta.boneless.efectivo || state.efectivoTarjeta.boneless.tarjeta || state.efectivoTarjeta.postres.efectivo || state.efectivoTarjeta.postres.tarjeta)) {
+      if (confirm(`Tienes ${state.negocios.length} registro(s) guardados en este teléfono. ¿Subirlos a este código nuevo para compartirlos?`)) {
+        uploadLocalRegistrosToCloud();
+      }
+    }
+    renderNegocios();
+  };
+  if (firebaseReady) attach();
+  else {
+    initFirebase();
+    const check = setInterval(() => { if (firebaseReady) { clearInterval(check); attach(); } }, 300);
+  }
+}
+
+function uploadLocalRegistrosToCloud() {
+  if (!db || !negociosCode) return;
+  const batch = db.batch();
+  const col = db.collection('households').doc(negociosCode).collection('registros');
+  state.negocios.forEach(r => {
+    const { id, ...rest } = r;
+    batch.set(col.doc(), rest);
+  });
+  const cashRef = db.collection('households').doc(negociosCode).collection('meta').doc('cash');
+  batch.set(cashRef, state.efectivoTarjeta);
+  batch.commit().catch(err => alert('Error subiendo tu historial a la nube: ' + err.message));
+}
+
+function copyOrOpenCode() {
+  if (!negociosCode) { openCodeGateModal(); return; }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(negociosCode).then(() => alert(`Código copiado: ${negociosCode}\n\nCompártelo con Monse para que vea los mismos datos.`));
+  } else {
+    alert(`Tu código: ${negociosCode}`);
+  }
+}
+
+function fmtMoney(n) {
+  return '$' + (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function filteredRegistros(view) {
+  return view === 'todos' ? state.negocios : state.negocios.filter(r => r.negocio === view);
+}
+
+function sumTipo(list, tipo) {
+  return list.filter(r => r.tipo === tipo).reduce((s, r) => s + r.monto, 0);
+}
+
+function isSameWeek(fechaStr) {
+  return getWeekKey(new Date(fechaStr + 'T12:00:00')) === getWeekKey(new Date());
+}
+
+function switchNegocioView(view) {
+  state.negocioView = view;
+  save('negocioView', view);
+  renderNegocios();
+}
+
+function renderNegocios() {
+  const view = state.negocioView || 'todos';
+
+  const codeLabel = document.getElementById('biz-code-label');
+  const codeSub = document.getElementById('biz-code-sub');
+  if (negociosCode) {
+    codeLabel.textContent = `Código: ${negociosCode}`;
+    codeSub.textContent = 'Toca para copiar y compartir con Monse';
+  } else {
+    codeLabel.textContent = 'Código de sincronización';
+    codeSub.textContent = firebaseConfigured() ? 'Toca para crear o unirte con un código' : 'Aún no configurado (ver instrucciones)';
+  }
+  updateSyncChip(negociosCode ? (firebaseReady ? true : null) : null);
+
+  const tabsEl = document.getElementById('biz-tabs');
+  tabsEl.innerHTML = ['todos', 'boneless', 'postres'].map(v =>
+    `<div class="biz-tab ${view === v ? 'active' : ''}" onclick="switchNegocioView('${v}')">${v === 'todos' ? 'Todos' : NEG_LABEL[v]}</div>`
+  ).join('');
+
+  const list = filteredRegistros(view);
+  const weekList = list.filter(r => isSameWeek(r.fecha));
+
+  const weeklyInversion = sumTipo(weekList, 'compra');
+  const weeklyVentas = sumTipo(weekList, 'venta');
+  const allInversion = sumTipo(list, 'compra');
+  const allVentas = sumTipo(list, 'venta');
+  const allGanancia = sumTipo(list, 'ganancia');
+  const deberiamos = allVentas - allInversion - allGanancia;
+  const pendienteAdeudo = list.filter(r => r.tipo === 'venta' && r.status === 'adeudo').reduce((s, r) => s + r.monto, 0);
+
+  document.getElementById('biz-stat-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-val negative">${fmtMoney(weeklyInversion)}</div>
+      <div class="stat-lbl">Inversión semanal</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val positive">${fmtMoney(weeklyVentas)}</div>
+      <div class="stat-lbl">Ventas semanales</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val ${deberiamos >= 0 ? 'positive' : 'negative'}">${fmtMoney(deberiamos)}</div>
+      <div class="stat-lbl">Deberíamos tener</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--coral-light)">${fmtMoney(pendienteAdeudo)}</div>
+      <div class="stat-lbl">Adeudo pendiente</div>
+    </div>`;
+
+  const cashSection = document.getElementById('biz-cash-section');
+  if (view === 'todos') {
+    const cashB = state.efectivoTarjeta.boneless, cashP = state.efectivoTarjeta.postres;
+    const tenemos = (cashB.efectivo + cashB.tarjeta) + (cashP.efectivo + cashP.tarjeta);
+    const cuadre = tenemos - deberiamos;
+    cashSection.innerHTML = `
+      <div class="chart-card">
+        <div class="chart-title">Cuadre de caja (Boneless + Postres)</div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tenemos</span><span style="flex:1;font-size:13px">${fmtMoney(tenemos)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">Selecciona Boneless o Postres para actualizar el efectivo y la tarjeta.</p>
+      </div>`;
+  } else {
+    const cash = state.efectivoTarjeta[view];
+    const tenemos = cash.efectivo + cash.tarjeta;
+    const cuadre = tenemos - deberiamos;
+    cashSection.innerHTML = `
+      <div class="chart-card">
+        <div class="chart-title">Cuadre de caja — ${NEG_LABEL[view]}</div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Efectivo</span><span style="flex:1;font-size:13px">${fmtMoney(cash.efectivo)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tarjeta</span><span style="flex:1;font-size:13px">${fmtMoney(cash.tarjeta)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tenemos</span><span style="flex:1;font-size:13px">${fmtMoney(tenemos)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
+      </div>
+      <button class="add-task-btn" onclick="openCashModal('${view}')" style="margin-bottom:16px">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12h12M2 4h12M5 8h6"/></svg>
+        Actualizar efectivo y tarjeta
+      </button>`;
+  }
+
+  const container = document.getElementById('biz-list-container');
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p>Sin registros todavía</p></div>`;
+  } else {
+    const sorted = [...list].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+    let html = '';
+    let lastDate = null;
+    sorted.forEach(r => {
+      if (r.fecha !== lastDate) {
+        const d = new Date(r.fecha + 'T12:00:00');
+        html += `<div class="biz-date-hdr">${d.getDate()} de ${MONTHS[d.getMonth()]}</div>`;
+        lastDate = r.fecha;
+      }
+      html += bizItemHTML(r, view);
+    });
+    container.innerHTML = html;
+  }
+
+  renderNavBar('nav5', 'negocios');
+}
+
+function bizItemHTML(r, view) {
+  const isOut = r.tipo === 'compra' || r.tipo === 'ganancia';
+  const amountClass = isOut ? 'biz-amount-neg' : 'biz-amount-pos';
+  const sign = isOut ? '-' : '+';
+
+  let title = '';
+  if (r.tipo === 'compra') title = r.concepto || 'Compra';
+  else if (r.tipo === 'venta') title = r.persona || 'Venta';
+  else title = 'Ganancia retirada';
+
+  let statusHTML = '';
+  if (r.tipo === 'venta') {
+    statusHTML = `<span class="biz-status ${r.status}" onclick="toggleRegistroStatus('${r.id}')">${r.status === 'pagado' ? 'Pagado' : 'Adeudo'}</span>`;
+  }
+
+  return `<div class="biz-item">
+    <div class="biz-item-body">
+      <div class="biz-item-title">
+        <span class="biz-badge ${BIZ_CLASS[r.tipo]}">${BIZ_LABEL[r.tipo]}</span>
+        ${view === 'todos' ? `<span class="biz-negocio-badge">${NEG_LABEL[r.negocio]}</span>` : ''}
+        ${statusHTML}
+      </div>
+      <div class="biz-item-meta">${title}</div>
+    </div>
+    <div class="biz-item-amount ${amountClass}">${sign}${fmtMoney(r.monto)}</div>
+    <span class="biz-item-del" onclick="deleteRegistro('${r.id}')">×</span>
+  </div>`;
+}
+
+function toggleRegistroStatus(id) {
+  const r = state.negocios.find(x => x.id === id);
+  if (!r || r.tipo !== 'venta') return;
+  const newStatus = r.status === 'pagado' ? 'adeudo' : 'pagado';
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('registros').doc(id).update({ status: newStatus })
+      .catch(err => alert('No se pudo actualizar en la nube: ' + err.message));
+  } else {
+    r.status = newStatus;
+    save('negocios', state.negocios);
+    renderNegocios();
+  }
+}
+
+function deleteRegistro(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('registros').doc(id).delete()
+      .catch(err => alert('No se pudo eliminar en la nube: ' + err.message));
+  } else {
+    state.negocios = state.negocios.filter(r => r.id !== id);
+    save('negocios', state.negocios);
+    renderNegocios();
+  }
+}
+
+function updateBizModalFields() {
+  const tipo = document.getElementById('biz-tipo').value;
+  document.getElementById('biz-concepto').style.display = tipo === 'compra' ? 'block' : 'none';
+  document.getElementById('biz-persona').style.display = tipo === 'venta' ? 'block' : 'none';
+  document.getElementById('biz-status').style.display = tipo === 'venta' ? 'block' : 'none';
+}
+
+function openBizModal() {
+  document.getElementById('biz-tipo').value = 'compra';
+  const currentView = state.negocioView;
+  document.getElementById('biz-negocio').value = (currentView === 'boneless' || currentView === 'postres') ? currentView : 'boneless';
+  document.getElementById('biz-fecha').value = getDayKey(new Date());
+  document.getElementById('biz-monto').value = '';
+  document.getElementById('biz-concepto').value = '';
+  document.getElementById('biz-persona').value = '';
+  document.getElementById('biz-status').value = 'pagado';
+  updateBizModalFields();
+  document.getElementById('biz-modal-overlay').classList.add('open');
+}
+
+function closeBizModal() {
+  document.getElementById('biz-modal-overlay').classList.remove('open');
+}
+
+function confirmAddBiz() {
+  const tipo = document.getElementById('biz-tipo').value;
+  const negocio = document.getElementById('biz-negocio').value;
+  const fecha = document.getElementById('biz-fecha').value;
+  const monto = parseFloat(document.getElementById('biz-monto').value);
+
+  if (!fecha || isNaN(monto) || monto <= 0) return;
+
+  const registro = { tipo, negocio, fecha, monto };
+  if (tipo === 'compra') {
+    registro.concepto = document.getElementById('biz-concepto').value.trim();
+  } else if (tipo === 'venta') {
+    registro.persona = document.getElementById('biz-persona').value.trim();
+    registro.status = document.getElementById('biz-status').value;
+  }
+
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('registros').add(registro)
+      .catch(err => alert('No se pudo guardar en la nube: ' + err.message));
+    closeBizModal();
+  } else {
+    registro.id = 'b' + Date.now();
+    state.negocios.push(registro);
+    save('negocios', state.negocios);
+    closeBizModal();
+    renderNegocios();
+  }
+}
+
+function exportNegociosExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('No se pudo cargar el motor de Excel. Revisa tu conexión a internet e intenta de nuevo.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+
+  ['boneless', 'postres'].forEach(neg => {
+    const rows = state.negocios
+      .filter(r => r.negocio === neg)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id))
+      .map(r => ({
+        Fecha: r.fecha,
+        Semana: getWeekKey(new Date(r.fecha + 'T12:00:00')),
+        Tipo: BIZ_LABEL[r.tipo],
+        'Concepto / Persona': r.tipo === 'compra' ? (r.concepto || '') : r.tipo === 'venta' ? (r.persona || '') : '',
+        Status: r.tipo === 'venta' ? (r.status === 'pagado' ? 'Pagado' : 'Adeudo') : '',
+        Monto: r.monto
+      }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws, neg === 'boneless' ? 'Boneless' : 'Postres');
+  });
+
+  const resumenRows = ['boneless', 'postres'].map(neg => {
+    const list = state.negocios.filter(r => r.negocio === neg);
+    const inv = sumTipo(list, 'compra');
+    const ven = sumTipo(list, 'venta');
+    const gan = sumTipo(list, 'ganancia');
+    const adeudo = list.filter(r => r.tipo === 'venta' && r.status === 'adeudo').reduce((s, r) => s + r.monto, 0);
+    const deb = ven - inv - gan;
+    const cash = state.efectivoTarjeta[neg] || { efectivo: 0, tarjeta: 0 };
+    const tenemos = cash.efectivo + cash.tarjeta;
+    return {
+      Negocio: NEG_LABEL[neg],
+      'Inversión total': inv,
+      'Ventas totales': ven,
+      'Ganancia retirada': gan,
+      'Deberíamos tener': deb,
+      'Adeudo pendiente': adeudo,
+      Efectivo: cash.efectivo,
+      Tarjeta: cash.tarjeta,
+      Tenemos: tenemos,
+      Cuadre: tenemos - deb
+    };
+  });
+  const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
+  wsResumen['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  XLSX.writeFile(wb, `Negocios_${getDayKey(new Date())}.xlsx`);
+}
+
+let cashModalTarget = null;
+
+function openCashModal(negocio) {
+  cashModalTarget = negocio;
+  const cash = state.efectivoTarjeta[negocio];
+  document.getElementById('cash-modal-title').textContent = `Efectivo y tarjeta — ${NEG_LABEL[negocio]}`;
+  document.getElementById('cash-efectivo').value = cash.efectivo || '';
+  document.getElementById('cash-tarjeta').value = cash.tarjeta || '';
+  document.getElementById('cash-modal-overlay').classList.add('open');
+}
+
+function closeCashModal() {
+  document.getElementById('cash-modal-overlay').classList.remove('open');
+}
+
+function confirmCash() {
+  if (!cashModalTarget) return;
+  const efectivo = parseFloat(document.getElementById('cash-efectivo').value) || 0;
+  const tarjeta = parseFloat(document.getElementById('cash-tarjeta').value) || 0;
+  const updated = { ...state.efectivoTarjeta, [cashModalTarget]: { efectivo, tarjeta } };
+
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('meta').doc('cash').set(updated, { merge: true })
+      .catch(err => alert('No se pudo guardar en la nube: ' + err.message));
+    closeCashModal();
+  } else {
+    state.efectivoTarjeta = updated;
+    save('efectivoTarjeta', updated);
+    closeCashModal();
+    renderNegocios();
+  }
+}
+
+document.getElementById('cash-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCashModal();
+});
+
+document.getElementById('biz-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeBizModal();
+});
+
 function openDayDetail(dayKey, weekKey) {
   const date = new Date(dayKey + 'T12:00:00');
   const dayName = DAYS[date.getDay()];
@@ -902,8 +1510,9 @@ function renderAll() {
   else if (s === 'semana') renderSemana();
   else if (s === 'stats') renderStats();
   else if (s === 'ajustes') renderAjustes();
-  ['nav','nav2','nav3','nav4'].forEach((id, i) => {
-    const screens = ['hoy','semana','stats','ajustes'];
+  else if (s === 'negocios') renderNegocios();
+  ['nav','nav2','nav3','nav4','nav5'].forEach((id, i) => {
+    const screens = ['hoy','semana','stats','ajustes','negocios'];
     renderNavBar(id, screens[i]);
   });
 }
@@ -1027,6 +1636,11 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+document.getElementById('code-gate-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCodeGateModal();
+});
+
+initFirebase();
 renderAll();
 </script>
 </body>
