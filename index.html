@@ -345,7 +345,7 @@
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
       <div style="text-align:center; margin-top:32px; padding-bottom:16px;">
-        <p style="font-size:12px;color:var(--text3)">Semana App · v2.0</p>
+        <p style="font-size:12px;color:var(--text3)">Semana App · v2.3</p>
         <p style="font-size:11px;color:var(--text3);margin-top:4px">Todos los datos se guardan en tu dispositivo</p>
       </div>
     </div>
@@ -364,17 +364,13 @@
     <div class="scroll-content">
       <div class="biz-tabs" id="biz-tabs"></div>
       <div class="stat-grid" id="biz-stat-grid"></div>
-      <button class="add-task-btn" onclick="openBizModal()" style="margin-bottom:16px;color:var(--blue-light);border-color:var(--blue)">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
-        Nuevo registro
-      </button>
       <div id="biz-cash-section"></div>
       <div class="section-title">Registros</div>
       <div id="biz-list-container"></div>
       <div class="settings-row" onclick="document.getElementById('import-excel-input').click()" style="margin-top:16px">
         <div>
-          <div class="settings-label">Importar histórico desde Excel</div>
-          <div class="settings-sub">Sube tu Historia Boneles / Historia Postres (una sola vez)</div>
+          <div class="settings-label">Importar desde Excel</div>
+          <div class="settings-sub">Restaura un backup exportado, o tu Excel original</div>
         </div>
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
@@ -1167,7 +1163,11 @@ function renderNegocios() {
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Deberíamos</span><span style="flex:1;font-size:13px">${fmtMoney(deberiamos)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
         <p style="font-size:11px;color:var(--text3);margin-top:8px">Selecciona Boneless o Postres para actualizar el efectivo y la tarjeta.</p>
-      </div>`;
+      </div>
+      <button class="add-task-btn" onclick="openBizModal()" style="margin-bottom:16px;color:var(--blue-light);border-color:var(--blue)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Nuevo registro
+      </button>`;
   } else {
     const cash = state.efectivoTarjeta[view];
     const tenemos = cash.efectivo + cash.tarjeta;
@@ -1181,6 +1181,10 @@ function renderNegocios() {
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Deberíamos</span><span style="flex:1;font-size:13px">${fmtMoney(deberiamos)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
       </div>
+      <button class="add-task-btn" onclick="openBizModal()" style="margin-bottom:10px;color:var(--blue-light);border-color:var(--blue)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Nuevo registro
+      </button>
       <button class="add-task-btn" onclick="openCashModal('${view}')" style="margin-bottom:10px;color:var(--teal-light);border-color:var(--teal)">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12h12M2 4h12M5 8h6"/></svg>
         Actualizar efectivo y tarjeta
@@ -1357,6 +1361,7 @@ function handleImportExcel(event) {
       });
 
       const nuevos = [];
+      const cashUpdates = {};
       let omitidas = 0;
 
       ['boneless', 'postres'].forEach(neg => {
@@ -1364,38 +1369,72 @@ function handleImportExcel(event) {
         if (!sheetName) return;
         const ws = wb.Sheets[sheetName];
         const wsRaw = XLSX.utils.sheet_to_json(ws, { header: 1, cellDates: true });
+        if (wsRaw.length === 0) return;
 
-        let lastFecha = null;
-        wsRaw.forEach(row => {
-          if (!row) return;
-          const semana = row[1];
-          if (typeof semana === 'string') {
-            // Fila especial (CORTE SEMANAL o GANANCIA SEMANAL). Si la columna VENTAS
-            // viene vacía, es un retiro de ganancia (no un corte agregado real).
-            if (row[4] === undefined || row[4] === null) {
-              const monto = parseFloat(row[3]) || 0;
-              if (monto > 0 && lastFecha) {
-                nuevos.push({ tipo: 'ganancia', negocio: neg, fecha: lastFecha, monto });
-              } else if (monto > 0) {
-                omitidas++;
-              }
-            }
-            // Si VENTAS sí trae valor (aunque sea 0), es un corte agregado real:
-            // ya se contó día por día, se ignora para no duplicar.
-            return;
+        const header = (wsRaw[0] || []).map(h => (h || '').toString().trim().toLowerCase());
+        const idxFecha = header.indexOf('fecha');
+        const idxTipo = header.indexOf('tipo');
+        const idxConcepto = header.indexOf('concepto');
+        const idxPersona = header.indexOf('persona');
+        const idxStatus = header.indexOf('status');
+        const idxMonto = header.indexOf('monto');
+        if (idxFecha === -1 || idxTipo === -1 || idxMonto === -1) return; // hoja no reconocida, se ignora
+
+        for (let i = 1; i < wsRaw.length; i++) {
+          const row = wsRaw[i];
+          if (!row || row.length === 0) continue;
+          const tipoLabelRaw = row[idxTipo];
+          if (!tipoLabelRaw) continue;
+          const tipoLabel = tipoLabelRaw.toString().trim();
+          const monto = parseFloat(row[idxMonto]) || 0;
+
+          if (tipoLabel === 'Saldo inicial') { cashUpdates[neg] = { ...(cashUpdates[neg] || {}), ajusteInicial: monto }; continue; }
+          if (tipoLabel === 'Efectivo actual') { cashUpdates[neg] = { ...(cashUpdates[neg] || {}), efectivo: monto }; continue; }
+          if (tipoLabel === 'Tarjeta actual') { cashUpdates[neg] = { ...(cashUpdates[neg] || {}), tarjeta: monto }; continue; }
+
+          const tipo = tipoLabel === 'Compra' ? 'compra' : tipoLabel === 'Venta' ? 'venta' : tipoLabel === 'Ganancia' ? 'ganancia' : null;
+          const fecha = parseFechaCell(row[idxFecha]);
+          if (!tipo || !fecha || monto <= 0) { if (monto > 0) omitidas++; continue; }
+          const r = { tipo, negocio: neg, fecha, monto };
+          if (tipo === 'compra') {
+            r.concepto = idxConcepto !== -1 ? (row[idxConcepto] || '') : '';
+          } else if (tipo === 'venta') {
+            r.concepto = idxConcepto !== -1 ? (row[idxConcepto] || '') : '';
+            r.persona = idxPersona !== -1 ? (row[idxPersona] || '') : '';
+            r.status = (idxStatus !== -1 && row[idxStatus] === 'Adeudo') ? 'adeudo' : 'pagado';
           }
-          const fecha = parseFechaCell(row[2]);
-          if (fecha) lastFecha = fecha;
-          const inversion = parseFloat(row[3]) || 0;
-          const ventas = parseFloat(row[4]) || 0;
-          if (!fecha) { if (inversion || ventas) omitidas++; return; }
-          if (inversion > 0) nuevos.push({ tipo: 'compra', negocio: neg, fecha, monto: inversion, concepto: '' });
-          if (ventas > 0) nuevos.push({ tipo: 'venta', negocio: neg, fecha, monto: ventas, persona: '', concepto: '', status: 'pagado' });
-        });
+          nuevos.push(r);
+        }
       });
 
-      if (nuevos.length === 0) {
-        alert('No encontré filas con datos reconocibles. Asegúrate de que el archivo tenga hojas "Historia Boneles" y/o "Historia Postres" con el mismo formato de columnas.');
+      // Si el archivo trae una hoja "Resumen" (versiones anteriores del export), usarla
+      // como respaldo para Saldo inicial / Efectivo / Tarjeta si no vinieron en las hojas de arriba.
+      const resumenSheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'resumen');
+      if (resumenSheetName) {
+        const raw = XLSX.utils.sheet_to_json(wb.Sheets[resumenSheetName], { header: 1 });
+        if (raw.length > 0) {
+          const h = (raw[0] || []).map(x => (x || '').toString().trim().toLowerCase());
+          const idxNeg = h.indexOf('negocio');
+          const idxSaldo = h.indexOf('saldo inicial');
+          const idxEfec = h.indexOf('efectivo');
+          const idxTarj = h.indexOf('tarjeta');
+          for (let i = 1; i < raw.length; i++) {
+            const row = raw[i];
+            if (!row || idxNeg === -1) continue;
+            const negLabel = (row[idxNeg] || '').toString().trim().toLowerCase();
+            const neg = negLabel === 'boneless' ? 'boneless' : negLabel === 'postres' ? 'postres' : null;
+            if (!neg) continue;
+            const existing = cashUpdates[neg] || {};
+            if (idxSaldo !== -1 && existing.ajusteInicial === undefined && row[idxSaldo] !== undefined) existing.ajusteInicial = parseFloat(row[idxSaldo]) || 0;
+            if (idxEfec !== -1 && existing.efectivo === undefined && row[idxEfec] !== undefined) existing.efectivo = parseFloat(row[idxEfec]) || 0;
+            if (idxTarj !== -1 && existing.tarjeta === undefined && row[idxTarj] !== undefined) existing.tarjeta = parseFloat(row[idxTarj]) || 0;
+            cashUpdates[neg] = existing;
+          }
+        }
+      }
+
+      if (nuevos.length === 0 && Object.keys(cashUpdates).length === 0) {
+        alert('No encontré datos reconocibles. Sube un archivo exportado por esta app (hojas Boneless / Postres con columnas Fecha, Tipo, Monto, etc.).');
         return;
       }
 
@@ -1407,23 +1446,45 @@ function handleImportExcel(event) {
         resumenPorTipo[k].total += r.monto;
       });
       const detalle = Object.entries(resumenPorTipo).map(([k, v]) => `  ${k}: ${v.n} · ${fmtMoney(v.total)}`).join('\n');
-      const resumen = `Encontré ${nuevos.length} registro(s) para importar:\n\n${detalle}` + (omitidas > 0 ? `\n\n(${omitidas} fila(s) sin fecha reconocible se omitieron)` : '') + `\n\nEsto va a AGREGARSE a lo que ya tienes (no borra nada). ¿Continuar?`;
+      const cashDetalle = Object.entries(cashUpdates).map(([neg, vals]) => {
+        const parts = [];
+        if (vals.ajusteInicial !== undefined) parts.push(`Saldo inicial ${fmtMoney(vals.ajusteInicial)}`);
+        if (vals.efectivo !== undefined) parts.push(`Efectivo ${fmtMoney(vals.efectivo)}`);
+        if (vals.tarjeta !== undefined) parts.push(`Tarjeta ${fmtMoney(vals.tarjeta)}`);
+        return `  ${NEG_LABEL[neg]} — ${parts.join(', ')}`;
+      }).join('\n');
+
+      let resumen = nuevos.length > 0 ? `Encontré ${nuevos.length} registro(s) para importar:\n\n${detalle}` : 'No hay registros nuevos que importar.';
+      if (cashDetalle) resumen += `\n\nTambién voy a actualizar:\n${cashDetalle}`;
+      if (omitidas > 0) resumen += `\n\n(${omitidas} fila(s) se omitieron por datos incompletos)`;
+      resumen += `\n\nEsto va a AGREGARSE a lo que ya tienes (no borra registros existentes, aunque sí actualiza saldo/efectivo/tarjeta si vienen en el archivo). ¿Continuar?`;
       if (!confirm(resumen)) return;
 
       if (db && negociosCode) {
-        const chunks = [];
-        for (let i = 0; i < nuevos.length; i += 400) chunks.push(nuevos.slice(i, i + 400));
-        const col = db.collection('households').doc(negociosCode).collection('registros');
-        Promise.all(chunks.map(chunk => {
-          const batch = db.batch();
-          chunk.forEach(r => batch.set(col.doc(), r));
-          return batch.commit();
-        })).then(() => alert(`Listo, se importaron ${nuevos.length} registros a la nube.`))
+        const promises = [];
+        if (nuevos.length > 0) {
+          const chunks = [];
+          for (let i = 0; i < nuevos.length; i += 400) chunks.push(nuevos.slice(i, i + 400));
+          const col = db.collection('households').doc(negociosCode).collection('registros');
+          promises.push(...chunks.map(chunk => {
+            const batch = db.batch();
+            chunk.forEach(r => batch.set(col.doc(), r));
+            return batch.commit();
+          }));
+        }
+        if (Object.keys(cashUpdates).length > 0) {
+          const merged = { ...state.efectivoTarjeta };
+          Object.entries(cashUpdates).forEach(([neg, vals]) => { merged[neg] = { ...merged[neg], ...vals }; });
+          promises.push(db.collection('households').doc(negociosCode).collection('meta').doc('cash').set(merged, { merge: true }));
+        }
+        Promise.all(promises).then(() => alert(`Listo, se importaron ${nuevos.length} registros y se actualizaron los datos de caja en la nube.`))
           .catch(err => alert('Error al importar: ' + err.message));
       } else {
         nuevos.forEach(r => { r.id = 'b' + Date.now() + Math.random().toString(36).slice(2, 6); });
         state.negocios.push(...nuevos);
+        Object.entries(cashUpdates).forEach(([neg, vals]) => { state.efectivoTarjeta[neg] = { ...state.efectivoTarjeta[neg], ...vals }; });
         save('negocios', state.negocios);
+        save('efectivoTarjeta', state.efectivoTarjeta);
         renderNegocios();
         alert(`Listo, se importaron ${nuevos.length} registros localmente. Conecta un código de sincronización para compartirlos con Monse.`);
       }
@@ -1471,20 +1532,25 @@ function exportNegociosExcel() {
   const wb = XLSX.utils.book_new();
 
   ['boneless', 'postres'].forEach(neg => {
-    const rows = state.negocios
+    const cash = state.efectivoTarjeta[neg] || { efectivo: 0, tarjeta: 0, ajusteInicial: 0 };
+    const specialRows = [
+      { Fecha: '', Tipo: 'Saldo inicial', Concepto: '', Persona: '', Status: '', Monto: cash.ajusteInicial || 0 },
+      { Fecha: '', Tipo: 'Efectivo actual', Concepto: '', Persona: '', Status: '', Monto: cash.efectivo || 0 },
+      { Fecha: '', Tipo: 'Tarjeta actual', Concepto: '', Persona: '', Status: '', Monto: cash.tarjeta || 0 }
+    ];
+    const transRows = state.negocios
       .filter(r => r.negocio === neg)
       .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id))
       .map(r => ({
         Fecha: r.fecha,
-        Semana: getWeekKey(new Date(r.fecha + 'T12:00:00')),
         Tipo: BIZ_LABEL[r.tipo],
         Concepto: r.concepto || '',
         Persona: r.tipo === 'venta' ? (r.persona || '') : '',
         Status: r.tipo === 'venta' ? (r.status === 'pagado' ? 'Pagado' : 'Adeudo') : '',
         Monto: r.monto
       }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 24 }, { wch: 18 }, { wch: 10 }, { wch: 12 }];
+    const ws = XLSX.utils.json_to_sheet([...specialRows, ...transRows]);
+    ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 24 }, { wch: 18 }, { wch: 10 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, neg === 'boneless' ? 'Boneless' : 'Postres');
   });
 
