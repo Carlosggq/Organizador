@@ -345,7 +345,7 @@
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
       <div style="text-align:center; margin-top:32px; padding-bottom:16px;">
-        <p style="font-size:12px;color:var(--text3)">Semana App · v1.6</p>
+        <p style="font-size:12px;color:var(--text3)">Semana App · v1.8</p>
         <p style="font-size:11px;color:var(--text3);margin-top:4px">Todos los datos se guardan en tu dispositivo</p>
       </div>
     </div>
@@ -371,6 +371,14 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
         Nuevo registro
       </button>
+      <div class="settings-row" onclick="document.getElementById('import-excel-input').click()" style="margin-top:16px">
+        <div>
+          <div class="settings-label">Importar histórico desde Excel</div>
+          <div class="settings-sub">Sube tu Historia Boneles / Historia Postres (una sola vez)</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <input type="file" id="import-excel-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcel(event)">
       <div class="settings-row" onclick="exportNegociosExcel()" style="margin-top:16px">
         <div>
           <div class="settings-label">Exportar a Excel</div>
@@ -448,7 +456,7 @@
     </select>
     <input type="date" id="biz-fecha">
     <input type="number" id="biz-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
-    <input type="text" id="biz-concepto" placeholder="Concepto (ej. Boneless 500g, Salsa BBQ)" maxlength="60">
+    <input type="text" id="biz-concepto" placeholder="Concepto (ej. Boneless 500g x2)" maxlength="60">
     <input type="text" id="biz-persona" placeholder="Nombre de la persona" maxlength="40">
     <select id="biz-status">
       <option value="pagado">Pagado</option>
@@ -1140,6 +1148,7 @@ function renderNegocios() {
       <div class="chart-card">
         <div class="chart-title">Cuadre de caja (Boneless + Postres)</div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tenemos</span><span style="flex:1;font-size:13px">${fmtMoney(tenemos)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Deberíamos</span><span style="flex:1;font-size:13px">${fmtMoney(deberiamos)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
         <p style="font-size:11px;color:var(--text3);margin-top:8px">Selecciona Boneless o Postres para actualizar el efectivo y la tarjeta.</p>
       </div>`;
@@ -1153,6 +1162,7 @@ function renderNegocios() {
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Efectivo</span><span style="flex:1;font-size:13px">${fmtMoney(cash.efectivo)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tarjeta</span><span style="flex:1;font-size:13px">${fmtMoney(cash.tarjeta)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Tenemos</span><span style="flex:1;font-size:13px">${fmtMoney(tenemos)}</span></div>
+        <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Deberíamos</span><span style="flex:1;font-size:13px">${fmtMoney(deberiamos)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
       </div>
       <button class="add-task-btn" onclick="openCashModal('${view}')" style="margin-bottom:16px">
@@ -1189,7 +1199,7 @@ function bizItemHTML(r, view) {
 
   let title = '';
   if (r.tipo === 'compra') title = r.concepto || 'Compra';
-  else if (r.tipo === 'venta') title = r.persona || 'Venta';
+  else if (r.tipo === 'venta') title = (r.persona || 'Venta') + (r.concepto ? ' — ' + r.concepto : '');
   else title = 'Ganancia retirada';
 
   let statusHTML = '';
@@ -1239,7 +1249,7 @@ function deleteRegistro(id) {
 
 function updateBizModalFields() {
   const tipo = document.getElementById('biz-tipo').value;
-  document.getElementById('biz-concepto').style.display = tipo === 'compra' ? 'block' : 'none';
+  document.getElementById('biz-concepto').style.display = (tipo === 'compra' || tipo === 'venta') ? 'block' : 'none';
   document.getElementById('biz-persona').style.display = tipo === 'venta' ? 'block' : 'none';
   document.getElementById('biz-status').style.display = tipo === 'venta' ? 'block' : 'none';
 }
@@ -1275,6 +1285,7 @@ function confirmAddBiz() {
   } else if (tipo === 'venta') {
     registro.persona = document.getElementById('biz-persona').value.trim();
     registro.status = document.getElementById('biz-status').value;
+    registro.concepto = document.getElementById('biz-concepto').value.trim();
   }
 
   if (db && negociosCode) {
@@ -1288,6 +1299,112 @@ function confirmAddBiz() {
     closeBizModal();
     renderNegocios();
   }
+}
+
+/* ====== IMPORTAR HISTÓRICO DESDE EXCEL ====== */
+
+function parseFechaCell(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  if (typeof v === 'string') {
+    const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (m) {
+      let [, d, mo, y] = m;
+      if (y.length === 2) y = '20' + y;
+      return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+function handleImportExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+      const sheetMap = { boneless: null, postres: null };
+      wb.SheetNames.forEach(name => {
+        const low = name.toLowerCase();
+        if (low.includes('bonel')) sheetMap.boneless = name;
+        else if (low.includes('postre')) sheetMap.postres = name;
+      });
+
+      const nuevos = [];
+      let omitidas = 0;
+
+      ['boneless', 'postres'].forEach(neg => {
+        const sheetName = sheetMap[neg];
+        if (!sheetName) return;
+        const ws = wb.Sheets[sheetName];
+        const wsRaw = XLSX.utils.sheet_to_json(ws, { header: 1, cellDates: true });
+
+        let lastFecha = null;
+        wsRaw.forEach(row => {
+          if (!row) return;
+          const semana = row[1];
+          if (semana === 'CORTE SEMANAL') return;
+          if (semana === 'GANANCIA SEMANAL') {
+            const monto = parseFloat(row[3]) || 0;
+            if (monto > 0 && lastFecha) {
+              nuevos.push({ tipo: 'ganancia', negocio: neg, fecha: lastFecha, monto });
+            } else if (monto > 0) {
+              omitidas++;
+            }
+            return;
+          }
+          const fecha = parseFechaCell(row[2]);
+          if (fecha) lastFecha = fecha;
+          const inversion = parseFloat(row[3]) || 0;
+          const ventas = parseFloat(row[4]) || 0;
+          if (!fecha) { if (inversion || ventas) omitidas++; return; }
+          if (inversion > 0) nuevos.push({ tipo: 'compra', negocio: neg, fecha, monto: inversion, concepto: '' });
+          if (ventas > 0) nuevos.push({ tipo: 'venta', negocio: neg, fecha, monto: ventas, persona: '', concepto: '', status: 'pagado' });
+        });
+      });
+
+      if (nuevos.length === 0) {
+        alert('No encontré filas con datos reconocibles. Asegúrate de que el archivo tenga hojas "Historia Boneles" y/o "Historia Postres" con el mismo formato de columnas.');
+        return;
+      }
+
+      const resumenPorTipo = {};
+      nuevos.forEach(r => {
+        const k = `${NEG_LABEL[r.negocio]} — ${BIZ_LABEL[r.tipo]}`;
+        if (!resumenPorTipo[k]) resumenPorTipo[k] = { n: 0, total: 0 };
+        resumenPorTipo[k].n++;
+        resumenPorTipo[k].total += r.monto;
+      });
+      const detalle = Object.entries(resumenPorTipo).map(([k, v]) => `  ${k}: ${v.n} · ${fmtMoney(v.total)}`).join('\n');
+      const resumen = `Encontré ${nuevos.length} registro(s) para importar:\n\n${detalle}` + (omitidas > 0 ? `\n\n(${omitidas} fila(s) sin fecha reconocible se omitieron)` : '') + `\n\nEsto va a AGREGARSE a lo que ya tienes (no borra nada). ¿Continuar?`;
+      if (!confirm(resumen)) return;
+
+      if (db && negociosCode) {
+        const chunks = [];
+        for (let i = 0; i < nuevos.length; i += 400) chunks.push(nuevos.slice(i, i + 400));
+        const col = db.collection('households').doc(negociosCode).collection('registros');
+        Promise.all(chunks.map(chunk => {
+          const batch = db.batch();
+          chunk.forEach(r => batch.set(col.doc(), r));
+          return batch.commit();
+        })).then(() => alert(`Listo, se importaron ${nuevos.length} registros a la nube.`))
+          .catch(err => alert('Error al importar: ' + err.message));
+      } else {
+        nuevos.forEach(r => { r.id = 'b' + Date.now() + Math.random().toString(36).slice(2, 6); });
+        state.negocios.push(...nuevos);
+        save('negocios', state.negocios);
+        renderNegocios();
+        alert(`Listo, se importaron ${nuevos.length} registros localmente. Conecta un código de sincronización para compartirlos con Monse.`);
+      }
+    } catch (err) {
+      alert('No pude leer ese archivo: ' + err.message);
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 function exportNegociosExcel() {
@@ -1305,12 +1422,13 @@ function exportNegociosExcel() {
         Fecha: r.fecha,
         Semana: getWeekKey(new Date(r.fecha + 'T12:00:00')),
         Tipo: BIZ_LABEL[r.tipo],
-        'Concepto / Persona': r.tipo === 'compra' ? (r.concepto || '') : r.tipo === 'venta' ? (r.persona || '') : '',
+        Concepto: r.concepto || '',
+        Persona: r.tipo === 'venta' ? (r.persona || '') : '',
         Status: r.tipo === 'venta' ? (r.status === 'pagado' ? 'Pagado' : 'Adeudo') : '',
         Monto: r.monto
       }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 24 }, { wch: 18 }, { wch: 10 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, neg === 'boneless' ? 'Boneless' : 'Postres');
   });
 
