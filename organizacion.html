@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Semana">
+<meta name="theme-color" content="#0f0f14">
+<title>Organización — Semana</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- SCREEN: HOY -->
+  <div class="screen active" id="screen-hoy">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1 id="today-title">Martes</h1>
+        <p id="today-subtitle">24 de junio · Sem 26</p>
+      </div>
+      <div class="header-right">
+        <div class="chip" id="today-chip">0 de 0</div>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div class="progress-card">
+        <svg id="progress-ring" width="60" height="60" viewBox="0 0 60 60">
+          <circle cx="30" cy="30" r="24" fill="none" stroke="#1e1e28" stroke-width="5"/>
+          <circle id="ring-fill" cx="30" cy="30" r="24" fill="none" stroke="#1D9E75" stroke-width="5"
+            stroke-dasharray="150.8" stroke-dashoffset="150.8" stroke-linecap="round"
+            transform="rotate(-90 30 30)" style="transition:stroke-dashoffset 0.5s ease"/>
+          <text x="30" y="35" text-anchor="middle" fill="#f0f0f0" font-size="13" font-weight="600" id="ring-pct">0%</text>
+        </svg>
+        <div class="progress-info">
+          <h2 id="progress-main">Sin tareas</h2>
+          <p id="progress-sub">Configura tu rutina</p>
+        </div>
+      </div>
+
+      <div id="today-tasks-container"></div>
+
+      <button class="add-task-btn" onclick="openAddModal('hoy')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Agregar tarea para hoy
+      </button>
+    </div>
+    <nav class="nav-bar" id="nav"></nav>
+  </div>
+
+
+  <!-- SCREEN: SEMANA -->
+  <div class="screen" id="screen-semana">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1 id="week-title">Semana</h1>
+        <p id="week-subtitle"></p>
+      </div>
+      <div class="header-right" id="week-compare-chip"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="week-bar-grid" id="week-bar-grid"></div>
+      <div class="section-title">Tareas fijas</div>
+      <div id="week-tasks-container"></div>
+      <button class="add-task-btn" onclick="openAddModal('semana')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Agregar tarea a la semana
+      </button>
+    </div>
+    <nav class="nav-bar" id="nav2"></nav>
+  </div>
+
+
+  <!-- SCREEN: STATS -->
+  <div class="screen" id="screen-stats">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1>Mis stats</h1>
+        <p id="stats-subtitle">Últimas semanas</p>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="chart-card">
+        <div class="chart-title">Cumplimiento por semana</div>
+        <div id="weekly-bars"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Por categoría (semana actual)</div>
+        <div id="category-bars"></div>
+      </div>
+    </div>
+    <nav class="nav-bar" id="nav3"></nav>
+  </div>
+
+
+  <!-- SCREEN: AJUSTES -->
+  <div class="screen" id="screen-ajustes">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1>Ajustes</h1>
+        <p>Gestiona tu rutina</p>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div class="section-title">Tareas fijas</div>
+      <div id="fixed-tasks-list"></div>
+      <button class="add-task-btn" onclick="openAddModal('fija')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        Nueva tarea fija
+      </button>
+      <div class="section-title" style="margin-top:20px">Acciones</div>
+      <div class="settings-row" onclick="resetWeek()">
+        <div>
+          <div class="settings-label">Reiniciar semana actual</div>
+          <div class="settings-sub">Marca todas las tareas como pendientes</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div class="settings-row" onclick="exportData()">
+        <div>
+          <div class="settings-label">Exportar mis datos</div>
+          <div class="settings-sub">Descarga un resumen en JSON</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div style="text-align:center; margin-top:32px; padding-bottom:16px;">
+        <p style="font-size:12px;color:var(--text3)">Semana App · v2.4</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">Todos los datos se guardan en tu dispositivo</p>
+      </div>
+    </div>
+    <nav class="nav-bar" id="nav4"></nav>
+  </div>
+
+
+</div>
+
+<!-- DAY DETAIL PANEL -->
+<div class="day-detail-overlay" id="day-detail-overlay">
+  <div class="day-detail-panel">
+    <div class="day-detail-handle"></div>
+    <div class="day-detail-header">
+      <div>
+        <div class="day-detail-title" id="day-detail-title">Lunes</div>
+        <div class="day-detail-sub" id="day-detail-sub"></div>
+      </div>
+      <span class="day-detail-close" onclick="closeDayDetail()">×</span>
+    </div>
+    <div class="day-detail-scroll" id="day-detail-content"></div>
+  </div>
+</div>
+
+<!-- ADD TASK MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">Nueva tarea</h3>
+    <input type="text" id="modal-task-name" placeholder="Nombre de la tarea" maxlength="60">
+    <select id="modal-category">
+      <option value="salud">Salud / Ejercicio</option>
+      <option value="trabajo">Trabajo</option>
+      <option value="habitos">Hábitos</option>
+      <option value="finanzas">Finanzas</option>
+      <option value="pendientes">Pendientes</option>
+    </select>
+    <select id="modal-day" style="display:none">
+      <option value="lunes">Lunes</option>
+      <option value="martes">Martes</option>
+      <option value="miercoles">Miércoles</option>
+      <option value="jueves">Jueves</option>
+      <option value="viernes">Viernes</option>
+      <option value="sabado">Sábado</option>
+      <option value="domingo">Domingo</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmAddTask()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const DAYS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+const DAYS_DISPLAY = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DAYS_FULL = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const CAT_LABEL = { salud:'Salud', trabajo:'Trabajo', habitos:'Hábitos', finanzas:'Finanzas', pendientes:'Pendientes' };
+const CAT_CLASS = { salud:'cat-salud', trabajo:'cat-trabajo', habitos:'cat-habitos', finanzas:'cat-finanzas', pendientes:'cat-pendientes' };
+const DEFAULT_FIXED = [
+  { id:'f1', name:'Ejercicio', cat:'salud', days:['lunes','miercoles','sabado'], freq:3 },
+  { id:'f2', name:'Trabajo', cat:'trabajo', days:['lunes','martes','miercoles','jueves','viernes'], freq:5 },
+  { id:'f3', name:'Limpiar escritorio', cat:'habitos', days:['martes'], freq:1 },
+  { id:'f4', name:'Compras para comida', cat:'habitos', days:['sabado'], freq:1 },
+  { id:'f5', name:'Lavar ropa', cat:'habitos', days:['sabado'], freq:1 },
+  { id:'f6', name:'Hacer comida para la semana', cat:'habitos', days:['domingo'], freq:1 },
+  { id:'f7', name:'Doblar ropa', cat:'habitos', days:['domingo'], freq:1 },
+  { id:'f8', name:'Producción de postres', cat:'finanzas', days:['domingo'], freq:1 },
+  { id:'f9', name:'Finanzas Negocios — Postres', cat:'finanzas', days:['domingo'], freq:1 },
+  { id:'f10', name:'Finanzas Negocios — Boneless', cat:'finanzas', days:['domingo'], freq:1 },
+  { id:'f11', name:'Finanzas Personales', cat:'finanzas', days:['domingo'], freq:1 },
+];
+
+function load(key, def) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e) { return def; }
+}
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+
+function getWeekKey(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const mon = new Date(d.setDate(diff));
+  return `${mon.getFullYear()}-W${String(getISOWeek(mon)).padStart(2,'0')}`;
+}
+function getISOWeek(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+let state = {
+  fixedTasks: load('fixedTasks', DEFAULT_FIXED),
+  weekData: load('weekData', {}),
+  currentScreen: 'hoy'
+};
+
+function renderNavBar(containerId, active) {
+  const pendingCount = getPendingYesterdayCount();
+  const badge = pendingCount > 0 ? `<span class="nav-badge">${pendingCount}</span>` : '';
+  const navHTML = `
+    <div class="nav-item ${active==='hoy'?'active':''}" onclick="switchScreen('hoy')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Hoy</span>
+    </div>
+    <div class="nav-item ${active==='semana'?'active':''}" onclick="switchScreen('semana')">
+      ${badge}
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M7 10h10M7 14h6"/></svg>
+      <span>Semana</span>
+    </div>
+    <div class="nav-item ${active==='stats'?'active':''}" onclick="switchScreen('stats')">
+      <svg viewBox="0 0 24 24"><path d="M3 17l4-6 4 4 4-8 4 5"/></svg>
+      <span>Stats</span>
+    </div>
+    <div class="nav-item ${active==='ajustes'?'active':''}" onclick="switchScreen('ajustes')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      <span>Ajustes</span>
+    </div>`;
+  [containerId].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = navHTML;
+  });
+}
+
+function getWeekDates(weekKey) {
+  const [year, week] = weekKey.split('-W').map(Number);
+  const jan4 = new Date(year, 0, 4);
+  const startOfWeek = new Date(jan4);
+  startOfWeek.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1 + (week - 1) * 7);
+  return Array.from({length:7}, (_, i) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    return d;
+  });
+}
+
+function getDayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function getTodayDayName() {
+  return DAYS[new Date().getDay()];
+}
+
+function getTasksForDay(dayName, weekKey, dayKey) {
+  const weekEntry = state.weekData[weekKey] || {};
+  const fixedForDay = state.fixedTasks.filter(t => t.days.includes(dayName));
+  const extraForDay = (weekEntry.extra || []).filter(t => t.dayKey === dayKey);
+  return { fixed: fixedForDay, extra: extraForDay };
+}
+
+function isTaskDone(taskId, dayKey, weekKey) {
+  const weekEntry = state.weekData[weekKey] || {};
+  return !!(weekEntry.done || {})[`${taskId}_${dayKey}`];
+}
+
+function toggleTask(taskId, dayKey, weekKey) {
+  if (!state.weekData[weekKey]) state.weekData[weekKey] = { done:{}, extra:[] };
+  const key = `${taskId}_${dayKey}`;
+  state.weekData[weekKey].done = state.weekData[weekKey].done || {};
+  state.weekData[weekKey].done[key] = !state.weekData[weekKey].done[key];
+  save('weekData', state.weekData);
+  renderAll();
+}
+
+function getWeekStats(weekKey) {
+  const dates = getWeekDates(weekKey);
+  let total = 0, done = 0;
+  dates.forEach(date => {
+    const dayName = DAYS[date.getDay()];
+    const dayKey = getDayKey(date);
+    const { fixed, extra } = getTasksForDay(dayName, weekKey, dayKey);
+    const all = [...fixed, ...extra];
+    total += all.length;
+    all.forEach(t => { if (isTaskDone(t.id, dayKey, weekKey)) done++; });
+  });
+  return { total, done, pct: total > 0 ? Math.round((done/total)*100) : 0 };
+}
+
+function getDayStats(date, weekKey) {
+  const dayName = DAYS[date.getDay()];
+  const dayKey = getDayKey(date);
+  const { fixed, extra } = getTasksForDay(dayName, weekKey, dayKey);
+  const all = [...fixed, ...extra];
+  const done = all.filter(t => isTaskDone(t.id, dayKey, weekKey)).length;
+  return { total: all.length, done, pct: all.length > 0 ? Math.round((done/all.length)*100) : 0 };
+}
+
+function getPendingYesterdayCount() {
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const weekKey = getWeekKey(yesterday);
+  const dayKey = getDayKey(yesterday);
+  const dayName = DAYS[yesterday.getDay()];
+  const { fixed, extra } = getTasksForDay(dayName, weekKey, dayKey);
+  return [...fixed, ...extra].filter(t => !isTaskDone(t.id, dayKey, weekKey)).length;
+}
+
+function switchScreen(name) {
+  state.currentScreen = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  renderAll();
+}
+
+function renderHoy() {
+  const now = new Date();
+  const weekKey = getWeekKey(now);
+  const dayKey = getDayKey(now);
+  const dayName = DAYS[now.getDay()];
+  const dayIdx = now.getDay();
+
+  document.getElementById('today-title').textContent = DAYS_FULL[dayIdx];
+  document.getElementById('today-subtitle').textContent = `${now.getDate()} de ${MONTHS[now.getMonth()]} · Sem ${getISOWeek(now)}`;
+
+  const { fixed, extra } = getTasksForDay(dayName, weekKey, dayKey);
+  const allTasks = [...fixed, ...extra];
+  const doneCount = allTasks.filter(t => isTaskDone(t.id, dayKey, weekKey)).length;
+  const total = allTasks.length;
+  const pct = total > 0 ? Math.round((doneCount/total)*100) : 0;
+
+  document.getElementById('today-chip').textContent = `${doneCount} de ${total}`;
+  document.getElementById('today-chip').className = 'chip ' + (pct === 100 && total > 0 ? 'green' : '');
+
+  const circumference = 150.8;
+  const offset = circumference - (circumference * pct / 100);
+  document.getElementById('ring-fill').style.strokeDashoffset = offset;
+  document.getElementById('ring-pct').textContent = pct + '%';
+
+  if (total > 0) {
+    document.getElementById('progress-main').textContent = `${doneCount} de ${total} tareas`;
+    document.getElementById('progress-sub').textContent = pct === 100 ? '¡Día completado!' : `${total - doneCount} pendiente${total - doneCount !== 1 ? 's' : ''}`;
+  } else {
+    document.getElementById('progress-main').textContent = 'Día libre';
+    document.getElementById('progress-sub').textContent = 'Sin tareas programadas';
+  }
+
+  const container = document.getElementById('today-tasks-container');
+  if (allTasks.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p>No hay tareas para hoy</p></div>`;
+    return;
+  }
+
+  let html = '';
+  if (fixed.length > 0) {
+    html += `<div class="section-title">Fijas de hoy</div>`;
+    fixed.forEach(t => {
+      const done = isTaskDone(t.id, dayKey, weekKey);
+      html += taskHTML(t, done, dayKey, weekKey);
+    });
+  }
+  if (extra.length > 0) {
+    html += `<div class="section-title">Extras de hoy</div>`;
+    extra.forEach(t => {
+      const done = isTaskDone(t.id, dayKey, weekKey);
+      html += taskHTML(t, done, dayKey, weekKey, true);
+    });
+  }
+  container.innerHTML = html;
+
+  renderNavBar('nav', 'hoy');
+}
+
+function taskHTML(t, done, dayKey, weekKey, isExtra) {
+  return `<div class="task-item ${done?'completed':''}" onclick="toggleTask('${t.id}','${dayKey}','${weekKey}')">
+    <div class="task-check ${done?'done':''}">
+      <svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M1 4.5l3 3 6-7"/></svg>
+    </div>
+    <div class="task-body">
+      <div class="task-name">${t.name}</div>
+    </div>
+    <span class="cat-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</span>
+    ${isExtra ? `<span onclick="event.stopPropagation();deleteExtraTask('${t.id}','${weekKey}')" style="color:var(--text3);font-size:18px;line-height:1;padding-left:4px">×</span>` : ''}
+  </div>`;
+}
+
+function renderSemana() {
+  const now = new Date();
+  const weekKey = getWeekKey(now);
+  const dates = getWeekDates(weekKey);
+  const weekNum = getISOWeek(now);
+
+  document.getElementById('week-title').textContent = `Semana ${weekNum}`;
+  const start = dates[0], end = dates[6];
+  document.getElementById('week-subtitle').textContent = `${start.getDate()} — ${end.getDate()} de ${MONTHS[end.getMonth()]}`;
+
+  const prevWeekDate = new Date(now);
+  prevWeekDate.setDate(prevWeekDate.getDate() - 7);
+  const prevKey = getWeekKey(prevWeekDate);
+  const currStats = getWeekStats(weekKey);
+  const prevStats = getWeekStats(prevKey);
+  const diff = currStats.pct - prevStats.pct;
+  const chipEl = document.getElementById('week-compare-chip');
+  if (prevStats.total > 0) {
+    const sign = diff >= 0 ? '+' : '';
+    chipEl.innerHTML = `<div class="chip ${diff>=0?'green':'red'}">${sign}${diff}% vs sem ${weekNum-1}</div>`;
+  } else {
+    chipEl.innerHTML = '';
+  }
+
+  const todayKey = getDayKey(now);
+  const gridEl = document.getElementById('week-bar-grid');
+  const dayOrder = [1,2,3,4,5,6,0];
+  let gridHTML = '';
+  dayOrder.forEach(dayIdx => {
+    const date = dates[dayIdx === 0 ? 6 : dayIdx - 1];
+    const dKey = getDayKey(date);
+    const isToday = dKey === todayKey;
+    const isPast = date < now && !isToday;
+    const isFuture = date > now && !isToday;
+    const stats = getDayStats(date, weekKey);
+    const hasPending = isPast && stats.total > 0 && stats.done < stats.total;
+    const allDone = isPast && stats.total > 0 && stats.done === stats.total;
+    let colClass = 'day-col';
+    if (isToday) colClass += ' today-col';
+    if (hasPending) colClass += ' has-pending';
+    if (allDone) colClass += ' all-done';
+    gridHTML += `<div class="${colClass}" onclick="openDayDetail('${dKey}','${weekKey}')">
+      <span class="day-name-lbl">${DAYS_DISPLAY[dayIdx]}</span>
+      <div class="day-num-circle ${isToday?'today':''}">${date.getDate()}</div>
+      <div class="day-bar-wrap">
+        <div class="day-bar-fill" style="height:${stats.pct}%"></div>
+      </div>
+      <span class="day-pct">${stats.total > 0 ? stats.pct+'%' : '—'}</span>
+    </div>`;
+  });
+  gridEl.innerHTML = gridHTML;
+
+  const container = document.getElementById('week-tasks-container');
+  let html = '';
+  state.fixedTasks.forEach(t => {
+    const completedDays = t.days.filter(dayName => {
+      const dayDate = dates.find(d => DAYS[d.getDay()] === dayName);
+      if (!dayDate) return false;
+      return isTaskDone(t.id, getDayKey(dayDate), weekKey);
+    });
+    const totalDays = t.days.length;
+    const daysLabel = t.days.map(d => DAYS_FULL[DAYS.indexOf(d)]).join(', ');
+    let dotsHTML = t.days.map(dayName => {
+      const dayDate = dates.find(d => DAYS[d.getDay()] === dayName);
+      const done = dayDate ? isTaskDone(t.id, getDayKey(dayDate), weekKey) : false;
+      return `<div class="wdot ${done?'done':''}"></div>`;
+    }).join('');
+
+    html += `<div class="week-task-row">
+      <span class="cat-badge ${CAT_CLASS[t.cat]}" style="flex-shrink:0">${CAT_LABEL[t.cat]}</span>
+      <div class="week-task-info">
+        <div class="week-task-name">${t.name}</div>
+        <div class="week-task-day">${daysLabel}</div>
+      </div>
+      <div class="week-dots">${dotsHTML}</div>
+    </div>`;
+  });
+  container.innerHTML = html || `<div class="empty-state"><p>No hay tareas fijas configuradas</p></div>`;
+
+  renderNavBar('nav2', 'semana');
+}
+
+function renderStats() {
+  const now = new Date();
+  const weeks = [];
+  for (let i = 3; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    weeks.push({ key: getWeekKey(d), num: getISOWeek(d) });
+  }
+
+  const currStats = getWeekStats(weeks[3].key);
+  const prevStats = getWeekStats(weeks[2].key);
+  const diff = currStats.pct - prevStats.pct;
+  const sign = diff >= 0 ? '+' : '';
+
+  const catStats = {};
+  ['salud','trabajo','habitos','finanzas','pendientes'].forEach(cat => catStats[cat] = { total:0, done:0 });
+  const currWeekKey = weeks[3].key;
+  const dates = getWeekDates(currWeekKey);
+  dates.forEach(date => {
+    const dayName = DAYS[date.getDay()];
+    const dayKey = getDayKey(date);
+    const { fixed, extra } = getTasksForDay(dayName, currWeekKey, dayKey);
+    [...fixed, ...extra].forEach(t => {
+      if (catStats[t.cat] !== undefined) {
+        catStats[t.cat].total++;
+        if (isTaskDone(t.id, dayKey, currWeekKey)) catStats[t.cat].done++;
+      }
+    });
+  });
+
+  const totalDoneCurr = Object.values(catStats).reduce((s,c) => s + c.done, 0);
+
+  const statGrid = document.getElementById('stat-grid');
+  statGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-val">${currStats.pct}%</div>
+      <div class="stat-lbl">Semana actual</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val ${diff>=0?'positive':'negative'}">${sign}${diff}%</div>
+      <div class="stat-lbl">vs semana pasada</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">${totalDoneCurr}</div>
+      <div class="stat-lbl">Tareas completadas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">${currStats.total > 0 ? currStats.total - currStats.done : 0}</div>
+      <div class="stat-lbl">Pendientes</div>
+    </div>`;
+
+  const weeklyBars = document.getElementById('weekly-bars');
+  const barColors = ['#185FA5','#185FA5','#185FA5','#1D9E75'];
+  weeklyBars.innerHTML = weeks.map((w, i) => {
+    const s = getWeekStats(w.key);
+    return `<div class="bar-row">
+      <span class="bar-row-lbl">Sem ${w.num}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${s.pct}%;background:${barColors[i]}"></div></div>
+      <span class="bar-row-pct" style="${i===3?'color:var(--teal)':''}">${s.pct}%</span>
+    </div>`;
+  }).join('');
+
+  const catColors = { salud:'#0F6E56', trabajo:'#185FA5', habitos:'#534AB7', finanzas:'#854F0B', pendientes:'#993C1D' };
+  const catBars = document.getElementById('category-bars');
+  catBars.innerHTML = ['salud','trabajo','habitos','finanzas','pendientes'].map(cat => {
+    const s = catStats[cat];
+    const pct = s.total > 0 ? Math.round((s.done/s.total)*100) : 0;
+    return `<div class="bar-row">
+      <span class="bar-row-lbl" style="font-size:10px">${CAT_LABEL[cat]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${catColors[cat]}"></div></div>
+      <span class="bar-row-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  renderNavBar('nav3', 'stats');
+}
+
+function renderAjustes() {
+  const list = document.getElementById('fixed-tasks-list');
+  if (state.fixedTasks.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>Sin tareas fijas</p></div>`;
+  } else {
+    list.innerHTML = state.fixedTasks.map(t => {
+      const daysLabel = t.days.map(d => DAYS_FULL[DAYS.indexOf(d)].slice(0,3)).join(', ');
+      return `<div class="settings-row">
+        <div style="flex:1">
+          <div class="settings-label" style="display:flex;align-items:center;gap:8px">
+            <span>${t.name}</span>
+            <span class="cat-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</span>
+          </div>
+          <div class="settings-sub">${daysLabel}</div>
+        </div>
+        <span onclick="deleteFixedTask('${t.id}')" style="color:var(--text3);font-size:22px;padding:4px 8px;cursor:pointer">×</span>
+      </div>`;
+    }).join('');
+  }
+  renderNavBar('nav4', 'ajustes');
+}
+
+/* ================= NEGOCIOS ================= */
+
+function openDayDetail(dayKey, weekKey) {
+  const date = new Date(dayKey + 'T12:00:00');
+  const dayName = DAYS[date.getDay()];
+  const now = new Date();
+  const todayKey = getDayKey(now);
+  const isToday = dayKey === todayKey;
+  const isPast = dayKey < todayKey;
+  const isFuture = dayKey > todayKey;
+
+  const dayLabel = isToday ? 'Hoy · ' + DAYS_FULL[date.getDay()] : DAYS_FULL[date.getDay()];
+  document.getElementById('day-detail-title').textContent = dayLabel;
+  document.getElementById('day-detail-sub').textContent =
+    `${date.getDate()} de ${MONTHS[date.getMonth()]}${isFuture ? ' · próximo' : ''}`;
+
+  state._detailDayKey = dayKey;
+  state._detailWeekKey = weekKey;
+
+  renderDayDetailContent(dayKey, weekKey);
+  document.getElementById('day-detail-overlay').classList.add('open');
+}
+
+function buildDayDetailHTML(dayKey, weekKey) {
+  const date = new Date(dayKey + 'T12:00:00');
+  const dayName = DAYS[date.getDay()];
+  const now = new Date();
+  const todayKey = getDayKey(now);
+  const isToday = dayKey === todayKey;
+  const isPast = dayKey < todayKey;
+  const isFuture = dayKey > todayKey;
+
+  const { fixed, extra } = getTasksForDay(dayName, weekKey, dayKey);
+  const allTasks = [...fixed, ...extra];
+
+  let html = '';
+
+  if (isFuture) {
+    if (allTasks.length === 0) {
+      html += `<div style="text-align:center;padding:24px 0 8px;">
+        <p style="font-size:13px;color:var(--text3)">Sin tareas programadas</p>
+        <p style="font-size:12px;color:var(--text3);margin-top:4px">Agrega una cita o pendiente puntual</p>
+      </div>`;
+    } else {
+      html += `<div class="section-title">Programado</div>`;
+      allTasks.forEach(t => {
+        const isExtra = !!extra.find(e => e.id === t.id);
+        html += futureDayTaskHTML(t, dayKey, weekKey, isExtra);
+      });
+    }
+    html += `<button class="add-task-btn" style="margin-top:12px" onclick="openDayAddModal('${dayKey}','${weekKey}')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+      Agregar cita o pendiente
+    </button>`;
+  } else {
+    const done = allTasks.filter(t => isTaskDone(t.id, dayKey, weekKey));
+    const pending = allTasks.filter(t => !isTaskDone(t.id, dayKey, weekKey));
+
+    if (isPast && pending.length > 0) {
+      html += `<div class="section-title" style="color:var(--coral)">No completadas (${pending.length})</div>`;
+      pending.forEach(t => {
+        const isExtra = !!extra.find(e => e.id === t.id);
+        html += `<div class="task-item" onclick="toggleTask('${t.id}','${dayKey}','${weekKey}');renderDayDetailContent('${dayKey}','${weekKey}')">
+          <div class="task-check">
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M1 4.5l3 3 6-7"/></svg>
+          </div>
+          <div class="task-body"><div class="task-name">${t.name}</div></div>
+          <span class="cat-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</span>
+          ${isExtra ? `<span onclick="event.stopPropagation();deleteExtraTask('${t.id}','${weekKey}');renderDayDetailContent('${dayKey}','${weekKey}')" style="color:var(--text3);font-size:18px;line-height:1;padding-left:4px">×</span>` : ''}
+        </div>`;
+      });
+    }
+
+    if (done.length > 0) {
+      html += `<div class="section-title" style="color:var(--teal)">Completadas (${done.length})</div>`;
+      done.forEach(t => {
+        const isExtra = !!extra.find(e => e.id === t.id);
+        html += `<div class="task-item completed" onclick="toggleTask('${t.id}','${dayKey}','${weekKey}');renderDayDetailContent('${dayKey}','${weekKey}')">
+          <div class="task-check done">
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M1 4.5l3 3 6-7"/></svg>
+          </div>
+          <div class="task-body"><div class="task-name">${t.name}</div></div>
+          <span class="cat-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</span>
+          ${isExtra ? `<span onclick="event.stopPropagation();deleteExtraTask('${t.id}','${weekKey}');renderDayDetailContent('${dayKey}','${weekKey}')" style="color:var(--text3);font-size:18px;line-height:1;padding-left:4px">×</span>` : ''}
+        </div>`;
+      });
+    }
+
+    if (allTasks.length === 0) {
+      html += `<div style="text-align:center;padding:24px 0 8px;">
+        <p style="font-size:13px;color:var(--text3)">Sin tareas este día</p>
+      </div>`;
+    }
+
+    html += `<button class="add-task-btn" style="margin-top:12px" onclick="openDayAddModal('${dayKey}','${weekKey}')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+      ${isToday ? 'Agregar tarea extra' : 'Agregar tarea puntual'}
+    </button>`;
+  }
+
+  return html;
+}
+
+function futureDayTaskHTML(t, dayKey, weekKey, isExtra) {
+  return `<div class="task-item" style="cursor:default">
+    <div class="task-check" style="border-color:var(--border);opacity:0.4"></div>
+    <div class="task-body"><div class="task-name">${t.name}</div></div>
+    <span class="cat-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</span>
+    ${isExtra ? `<span onclick="deleteExtraTask('${t.id}','${weekKey}');renderDayDetailContent('${dayKey}','${weekKey}')" style="color:var(--text3);font-size:18px;line-height:1;padding-left:4px;cursor:pointer">×</span>` : ''}
+  </div>`;
+}
+
+function renderDayDetailContent(dayKey, weekKey) {
+  save('weekData', state.weekData);
+  renderAll();
+  document.getElementById('day-detail-content').innerHTML = buildDayDetailHTML(dayKey, weekKey);
+}
+
+function closeDayDetail() {
+  document.getElementById('day-detail-overlay').classList.remove('open');
+}
+
+function renderAll() {
+  const s = state.currentScreen;
+  if (s === 'hoy') renderHoy();
+  else if (s === 'semana') renderSemana();
+  else if (s === 'stats') renderStats();
+  else if (s === 'ajustes') renderAjustes();
+  ['nav','nav2','nav3','nav4'].forEach((id, i) => {
+    const screens = ['hoy','semana','stats','ajustes'];
+    renderNavBar(id, screens[i]);
+  });
+}
+
+let modalMode = 'hoy';
+let modalTargetDayKey = null;
+let modalTargetWeekKey = null;
+
+function openAddModal(mode) {
+  modalMode = mode;
+  modalTargetDayKey = null;
+  modalTargetWeekKey = null;
+  const daySelect = document.getElementById('modal-day');
+  if (mode === 'fija') {
+    document.getElementById('modal-title').textContent = 'Nueva tarea fija';
+    daySelect.style.display = 'block';
+  } else {
+    document.getElementById('modal-title').textContent = 'Nueva tarea para hoy';
+    daySelect.style.display = 'none';
+  }
+  document.getElementById('modal-task-name').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-task-name').focus(), 300);
+}
+
+function openDayAddModal(dayKey, weekKey) {
+  const date = new Date(dayKey + 'T12:00:00');
+  const isFuture = dayKey > getDayKey(new Date());
+  modalMode = 'dia';
+  modalTargetDayKey = dayKey;
+  modalTargetWeekKey = weekKey;
+  const label = isFuture
+    ? `Cita / pendiente — ${DAYS_FULL[date.getDay()]} ${date.getDate()}`
+    : `Tarea extra — ${DAYS_FULL[date.getDay()]} ${date.getDate()}`;
+  document.getElementById('modal-title').textContent = label;
+  document.getElementById('modal-day').style.display = 'none';
+  document.getElementById('modal-task-name').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-task-name').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function confirmAddTask() {
+  const name = document.getElementById('modal-task-name').value.trim();
+  if (!name) return;
+  const cat = document.getElementById('modal-category').value;
+
+  if (modalMode === 'fija') {
+    const day = document.getElementById('modal-day').value;
+    const newTask = { id: 'f' + Date.now(), name, cat, days: [day], freq: 1 };
+    state.fixedTasks.push(newTask);
+    save('fixedTasks', state.fixedTasks);
+  } else if (modalMode === 'dia' && modalTargetDayKey) {
+    const wKey = modalTargetWeekKey;
+    const dKey = modalTargetDayKey;
+    if (!state.weekData[wKey]) state.weekData[wKey] = { done:{}, extra:[] };
+    if (!state.weekData[wKey].extra) state.weekData[wKey].extra = [];
+    const newTask = { id: 'e' + Date.now(), name, cat, dayKey: dKey };
+    state.weekData[wKey].extra.push(newTask);
+    save('weekData', state.weekData);
+    closeModal();
+    renderAll();
+    renderDayDetailContent(dKey, wKey);
+    document.getElementById('day-detail-overlay').classList.add('open');
+    return;
+  } else {
+    const now = new Date();
+    const weekKey = getWeekKey(now);
+    const dayKey = getDayKey(now);
+    if (!state.weekData[weekKey]) state.weekData[weekKey] = { done:{}, extra:[] };
+    if (!state.weekData[weekKey].extra) state.weekData[weekKey].extra = [];
+    const newTask = { id: 'e' + Date.now(), name, cat, dayKey };
+    state.weekData[weekKey].extra.push(newTask);
+    save('weekData', state.weekData);
+  }
+  closeModal();
+  renderAll();
+}
+
+function deleteFixedTask(id) {
+  if (!confirm('¿Eliminar esta tarea fija?')) return;
+  state.fixedTasks = state.fixedTasks.filter(t => t.id !== id);
+  save('fixedTasks', state.fixedTasks);
+  renderAll();
+}
+
+function deleteExtraTask(id, weekKey) {
+  if (!state.weekData[weekKey]) return;
+  state.weekData[weekKey].extra = (state.weekData[weekKey].extra || []).filter(t => t.id !== id);
+  save('weekData', state.weekData);
+  renderAll();
+}
+
+function resetWeek() {
+  if (!confirm('¿Reiniciar todas las tareas de esta semana?')) return;
+  const weekKey = getWeekKey(new Date());
+  if (state.weekData[weekKey]) state.weekData[weekKey].done = {};
+  save('weekData', state.weekData);
+  renderAll();
+}
+
+function exportData() {
+  const data = JSON.stringify({ fixedTasks: state.fixedTasks, weekData: state.weekData }, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'semana-app-data.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('day-detail-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDayDetail();
+});
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+
+renderAll();
+</script>
+</body>
+</html>
