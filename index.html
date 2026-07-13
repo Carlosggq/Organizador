@@ -345,7 +345,7 @@
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
       <div style="text-align:center; margin-top:32px; padding-bottom:16px;">
-        <p style="font-size:12px;color:var(--text3)">Semana App · v1.8</p>
+        <p style="font-size:12px;color:var(--text3)">Semana App · v2.0</p>
         <p style="font-size:11px;color:var(--text3);margin-top:4px">Todos los datos se guardan en tu dispositivo</p>
       </div>
     </div>
@@ -482,6 +482,19 @@
   </div>
 </div>
 
+<!-- INITIAL BALANCE MODAL -->
+<div class="modal-overlay" id="initial-modal-overlay">
+  <div class="modal">
+    <h3 id="initial-modal-title">Saldo inicial</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Es tu último corte verificado (Tenemos = Deberíamos, "OK") de tu Excel, antes de empezar a usar la app. Normalmente solo se configura una vez.</p>
+    <input type="number" id="initial-balance-input" placeholder="Saldo inicial ($)" inputmode="decimal" step="0.01">
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeInitialModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmInitialBalance()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- SYNC CODE GATE MODAL -->
 <div class="modal-overlay" id="code-gate-overlay">
   <div class="modal">
@@ -550,7 +563,7 @@ let state = {
   weekData: load('weekData', {}),
   negocios: load('negocios', []),
   negocioView: load('negocioView', 'todos'),
-  efectivoTarjeta: load('efectivoTarjeta', { boneless: { efectivo: 0, tarjeta: 0 }, postres: { efectivo: 0, tarjeta: 0 } }),
+  efectivoTarjeta: load('efectivoTarjeta', { boneless: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 }, postres: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 } }),
   currentScreen: 'hoy'
 };
 
@@ -1118,7 +1131,10 @@ function renderNegocios() {
   const allInversion = sumTipo(list, 'compra');
   const allVentas = sumTipo(list, 'venta');
   const allGanancia = sumTipo(list, 'ganancia');
-  const deberiamos = allVentas - allInversion - allGanancia;
+  const ajusteInicial = view === 'todos'
+    ? (state.efectivoTarjeta.boneless.ajusteInicial || 0) + (state.efectivoTarjeta.postres.ajusteInicial || 0)
+    : (state.efectivoTarjeta[view].ajusteInicial || 0);
+  const deberiamos = ajusteInicial + allVentas - allInversion - allGanancia;
   const pendienteAdeudo = list.filter(r => r.tipo === 'venta' && r.status === 'adeudo').reduce((s, r) => s + r.monto, 0);
 
   document.getElementById('biz-stat-grid').innerHTML = `
@@ -1165,9 +1181,17 @@ function renderNegocios() {
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Deberíamos</span><span style="flex:1;font-size:13px">${fmtMoney(deberiamos)}</span></div>
         <div class="bar-row"><span class="bar-row-lbl" style="width:90px">Cuadre</span><span class="chip ${cuadre>=0?'green':'red'}" style="font-size:12px">${cuadre>=0?'OK':'DIF'} · ${fmtMoney(cuadre)}</span></div>
       </div>
-      <button class="add-task-btn" onclick="openCashModal('${view}')" style="margin-bottom:16px">
+      <button class="add-task-btn" onclick="openCashModal('${view}')" style="margin-bottom:10px">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12h12M2 4h12M5 8h6"/></svg>
         Actualizar efectivo y tarjeta
+      </button>
+      <button class="add-task-btn" onclick="openInitialModal('${view}')" style="margin-bottom:10px">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2v12M2 8h12"/></svg>
+        Saldo inicial: ${fmtMoney(state.efectivoTarjeta[view].ajusteInicial || 0)}
+      </button>
+      <button class="add-task-btn" onclick="resetNegocioRegistros('${view}')" style="margin-bottom:16px;color:var(--red-light);border-color:var(--red)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4h12M6 4V2h4v2M3 4l1 10h8l1-10"/></svg>
+        Borrar todos los registros de ${NEG_LABEL[view]}
       </button>`;
   }
 
@@ -1345,14 +1369,19 @@ function handleImportExcel(event) {
         wsRaw.forEach(row => {
           if (!row) return;
           const semana = row[1];
-          if (semana === 'CORTE SEMANAL') return;
-          if (semana === 'GANANCIA SEMANAL') {
-            const monto = parseFloat(row[3]) || 0;
-            if (monto > 0 && lastFecha) {
-              nuevos.push({ tipo: 'ganancia', negocio: neg, fecha: lastFecha, monto });
-            } else if (monto > 0) {
-              omitidas++;
+          if (typeof semana === 'string') {
+            // Fila especial (CORTE SEMANAL o GANANCIA SEMANAL). Si la columna VENTAS
+            // viene vacía, es un retiro de ganancia (no un corte agregado real).
+            if (row[4] === undefined || row[4] === null) {
+              const monto = parseFloat(row[3]) || 0;
+              if (monto > 0 && lastFecha) {
+                nuevos.push({ tipo: 'ganancia', negocio: neg, fecha: lastFecha, monto });
+              } else if (monto > 0) {
+                omitidas++;
+              }
             }
+            // Si VENTAS sí trae valor (aunque sea 0), es un corte agregado real:
+            // ya se contó día por día, se ignora para no duplicar.
             return;
           }
           const fecha = parseFechaCell(row[2]);
@@ -1407,6 +1436,33 @@ function handleImportExcel(event) {
   reader.readAsArrayBuffer(file);
 }
 
+function resetNegocioRegistros(view) {
+  if (view === 'todos') return;
+  const label = NEG_LABEL[view];
+  const toDelete = state.negocios.filter(r => r.negocio === view);
+  if (toDelete.length === 0) { alert(`No hay registros de ${label} para borrar.`); return; }
+
+  const typed = prompt(`Esto va a BORRAR PERMANENTEMENTE los ${toDelete.length} registros de ${label} (compras, ventas y ganancias). Esta acción no se puede deshacer.\n\nEscribe ${label.toUpperCase()} para confirmar:`);
+  if (!typed || typed.trim().toUpperCase() !== label.toUpperCase()) { alert('Cancelado, no se borró nada.'); return; }
+
+  if (db && negociosCode) {
+    const chunks = [];
+    for (let i = 0; i < toDelete.length; i += 400) chunks.push(toDelete.slice(i, i + 400));
+    const col = db.collection('households').doc(negociosCode).collection('registros');
+    Promise.all(chunks.map(chunk => {
+      const batch = db.batch();
+      chunk.forEach(r => batch.delete(col.doc(r.id)));
+      return batch.commit();
+    })).then(() => alert(`Listo, se borraron ${toDelete.length} registros de ${label}. Ya puedes reimportar limpio.`))
+      .catch(err => alert('Error al borrar: ' + err.message));
+  } else {
+    state.negocios = state.negocios.filter(r => r.negocio !== view);
+    save('negocios', state.negocios);
+    renderNegocios();
+    alert(`Listo, se borraron ${toDelete.length} registros de ${label}.`);
+  }
+}
+
 function exportNegociosExcel() {
   if (typeof XLSX === 'undefined') {
     alert('No se pudo cargar el motor de Excel. Revisa tu conexión a internet e intenta de nuevo.');
@@ -1438,11 +1494,12 @@ function exportNegociosExcel() {
     const ven = sumTipo(list, 'venta');
     const gan = sumTipo(list, 'ganancia');
     const adeudo = list.filter(r => r.tipo === 'venta' && r.status === 'adeudo').reduce((s, r) => s + r.monto, 0);
-    const deb = ven - inv - gan;
-    const cash = state.efectivoTarjeta[neg] || { efectivo: 0, tarjeta: 0 };
+    const cash = state.efectivoTarjeta[neg] || { efectivo: 0, tarjeta: 0, ajusteInicial: 0 };
+    const deb = (cash.ajusteInicial || 0) + ven - inv - gan;
     const tenemos = cash.efectivo + cash.tarjeta;
     return {
       Negocio: NEG_LABEL[neg],
+      'Saldo inicial': cash.ajusteInicial || 0,
       'Inversión total': inv,
       'Ventas totales': ven,
       'Ganancia retirada': gan,
@@ -1455,11 +1512,46 @@ function exportNegociosExcel() {
     };
   });
   const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
-  wsResumen['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  wsResumen['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
 
   XLSX.writeFile(wb, `Negocios_${getDayKey(new Date())}.xlsx`);
 }
+
+let initialModalTarget = null;
+
+function openInitialModal(negocio) {
+  initialModalTarget = negocio;
+  document.getElementById('initial-modal-title').textContent = `Saldo inicial — ${NEG_LABEL[negocio]}`;
+  document.getElementById('initial-balance-input').value = state.efectivoTarjeta[negocio].ajusteInicial || '';
+  document.getElementById('initial-modal-overlay').classList.add('open');
+}
+
+function closeInitialModal() {
+  document.getElementById('initial-modal-overlay').classList.remove('open');
+}
+
+function confirmInitialBalance() {
+  if (!initialModalTarget) return;
+  const val = parseFloat(document.getElementById('initial-balance-input').value) || 0;
+  const current = state.efectivoTarjeta[initialModalTarget];
+  const updated = { ...state.efectivoTarjeta, [initialModalTarget]: { ...current, ajusteInicial: val } };
+
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('meta').doc('cash').set(updated, { merge: true })
+      .catch(err => alert('No se pudo guardar en la nube: ' + err.message));
+    closeInitialModal();
+  } else {
+    state.efectivoTarjeta = updated;
+    save('efectivoTarjeta', updated);
+    closeInitialModal();
+    renderNegocios();
+  }
+}
+
+document.getElementById('initial-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeInitialModal();
+});
 
 let cashModalTarget = null;
 
