@@ -26,6 +26,9 @@
       <div class="header-right" id="fz-sync-chip"></div>
     </div>
     <div class="scroll-content">
+      <div style="text-align:right;margin-bottom:8px">
+        <span onclick="openPlantillaModal()" style="font-size:11.5px;color:var(--text3);cursor:pointer;text-decoration:underline">Editar plantillas</span>
+      </div>
       <div id="fz-quincena-content"></div>
     </div>
     <nav class="nav-bar" id="fz-nav1"></nav>
@@ -66,6 +69,41 @@
 
 </div>
 
+<!-- PLANTILLAS MODAL -->
+<div class="modal-overlay" id="plantilla-modal-overlay">
+  <div class="modal">
+    <h3>Plantillas de quincena</h3>
+    <div class="biz-tabs" style="margin-bottom:12px">
+      <div class="biz-tab active" id="pt-tab-p15" onclick="switchPlantillaTab('p15')">Del 15</div>
+      <div class="biz-tab" id="pt-tab-p30" onclick="switchPlantillaTab('p30')">Del 30</div>
+    </div>
+    <div id="plantilla-list" style="max-height:50vh;overflow-y:auto;margin-bottom:10px"></div>
+    <button class="fz-add-gasto-btn" onclick="openPlantillaItemModal(null)">+ Agregar concepto a la plantilla</button>
+    <div class="modal-btns">
+      <button class="btn btn-confirm" onclick="closePlantillaModal()" style="grid-column:1/-1">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLANTILLA ITEM MODAL -->
+<div class="modal-overlay" id="plantilla-item-modal-overlay">
+  <div class="modal">
+    <h3 id="plantilla-item-modal-title">Concepto de plantilla</h3>
+    <select id="pi-tipo">
+      <option value="Fijos">G. Fijos</option>
+      <option value="Variables">G. Variables</option>
+      <option value="Ocio">Ocio</option>
+      <option value="Ahorro">Ahorro</option>
+    </select>
+    <input type="text" id="pi-concepto" placeholder="Concepto" maxlength="40">
+    <input type="number" id="pi-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closePlantillaItemModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmPlantillaItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- QUINCENA HEADER MODAL (nueva / editar) -->
 <div class="modal-overlay" id="quincena-modal-overlay">
   <div class="modal">
@@ -75,10 +113,13 @@
     <input type="date" id="q-fin">
     <input type="number" id="q-ingresos" placeholder="Ingresos ($)" inputmode="decimal" step="0.01" min="0">
     <input type="number" id="q-ahorros" placeholder="Mis ahorros ($)" inputmode="decimal" step="0.01" min="0">
-    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px 10px;" id="q-copy-row">
-      <span class="toggle"><input type="checkbox" id="q-copiar" checked><span class="toggle-slider"></span></span>
-      Copiar conceptos (presupuesto) de la quincena anterior
-    </label>
+    <select id="q-fuente" style="margin:8px 0 10px">
+      <option value="auto">Detectar plantilla automático (según fecha)</option>
+      <option value="p15">Usar plantilla "Del 15"</option>
+      <option value="p30">Usar plantilla "Del 30"</option>
+      <option value="anterior">Copiar de la quincena anterior</option>
+      <option value="vacia">Empezar vacía</option>
+    </select>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeQuincenaModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmQuincena()">Guardar</button>
@@ -176,15 +217,15 @@ function proximaFechaDia(diaMes) {
 }
 function formatFechaCorta(d) { if (!d) return ''; return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; }
 
-/* Saldo real de una tarjeta = saldo inicial (checkpoint) + todos los cargos - todos los pagos
-   registrados en cualquier quincena. Así nunca se desincroniza aunque edites o borres un gasto. */
+/* Saldo real de una tarjeta = saldo inicial (checkpoint) + cargos ya pagados - pagos ya pagados,
+   de cualquier quincena. Los conceptos sin marcar "Ya está pagado" son un plan, no cuentan todavía. */
 function tarjetaSaldoActual(tarjetaId) {
   const d = state.deudas.find(x => x.id === tarjetaId);
   if (!d) return 0;
   const base = Number(d.saldoInicial != null ? d.saldoInicial : d.saldo) || 0;
   let cargos = 0, pagos = 0;
   state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
-    if (g.tarjetaId === tarjetaId) {
+    if (g.tarjetaId === tarjetaId && g.pagado) {
       if (g.formaPago === 'cargo') cargos += Number(g.gastado)||0;
       else if (g.formaPago === 'pago') pagos += Number(g.gastado)||0;
     }
@@ -192,13 +233,44 @@ function tarjetaSaldoActual(tarjetaId) {
   return base + cargos - pagos;
 }
 
+const PLANTILLAS_DEFAULT = {
+  p15: [
+    { tipo: 'Fijos', concepto: 'Transporte', presupuestado: 400 },
+    { tipo: 'Ocio', concepto: 'Apple Music', presupuestado: 179 },
+    { tipo: 'Ocio', concepto: 'Apple iCloud', presupuestado: 199 },
+    { tipo: 'Fijos', concepto: 'Semana 1', presupuestado: 800 },
+    { tipo: 'Fijos', concepto: 'Semana 2', presupuestado: 800 },
+    { tipo: 'Variables', concepto: 'Coche mensual', presupuestado: 3500 },
+    { tipo: 'Fijos', concepto: 'Mamá', presupuestado: 500 }
+  ],
+  p30: [
+    { tipo: 'Fijos', concepto: 'Transporte', presupuestado: 400 },
+    { tipo: 'Fijos', concepto: 'Telcel', presupuestado: 600 },
+    { tipo: 'Variables', concepto: 'Corte cabello', presupuestado: 150 },
+    { tipo: 'Fijos', concepto: 'Santander', presupuestado: 2500 },
+    { tipo: 'Ocio', concepto: 'Netflix', presupuestado: 269 },
+    { tipo: 'Fijos', concepto: 'Semana 1', presupuestado: 800 },
+    { tipo: 'Fijos', concepto: 'Claude IA', presupuestado: 400 },
+    { tipo: 'Fijos', concepto: 'Semana 2', presupuestado: 800 }
+  ]
+};
+function withIds(arr) { return arr.map(x => ({ id: uid(), ...x })); }
+
 let state = {
   quincenas: load('fz_quincenas', []),
   deudas: load('fz_deudas', []),
   extra: load('fz_extra', 0),
+  plantillas: load('fz_plantillas', { p15: withIds(PLANTILLAS_DEFAULT.p15), p30: withIds(PLANTILLAS_DEFAULT.p30) }),
   currentQIndex: load('fz_currentQIndex', 0),
   currentScreen: 'fz-quincena'
 };
+let plantillaTab = 'p15';
+
+function detectarPlantilla(fechaInicioISO) {
+  if (!fechaInicioISO) return 'p30';
+  const dia = parseInt(fechaInicioISO.split('-')[2], 10);
+  return (dia >= 16 && dia <= 23) ? 'p15' : 'p30';
+}
 
 let editingGastoId = null;
 let editingDeudaId = null;
@@ -218,6 +290,7 @@ let fzCode = localStorage.getItem('fzCode') || null;
 let fsUnsubQuincenas = null;
 let fsUnsubDeudas = null;
 let fsUnsubMeta = null;
+let fsUnsubPlantillas = null;
 
 function firebaseConfigured() { return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'TU_API_KEY_AQUI'; }
 
@@ -243,6 +316,7 @@ function attachFzListeners() {
   if (fsUnsubQuincenas) fsUnsubQuincenas();
   if (fsUnsubDeudas) fsUnsubDeudas();
   if (fsUnsubMeta) fsUnsubMeta();
+  if (fsUnsubPlantillas) fsUnsubPlantillas();
 
   fsUnsubQuincenas = db.collection('households').doc(fzCode).collection('fz_quincenas')
     .onSnapshot(snap => {
@@ -263,6 +337,11 @@ function attachFzListeners() {
   fsUnsubMeta = db.collection('households').doc(fzCode).collection('fz_meta').doc('plan')
     .onSnapshot(snap => {
       if (snap.exists) { state.extra = snap.data().extraPorQuincena || 0; save('fz_extra', state.extra); renderAll(); }
+    }, err => console.error(err));
+
+  fsUnsubPlantillas = db.collection('households').doc(fzCode).collection('fz_meta').doc('plantillas')
+    .onSnapshot(snap => {
+      if (snap.exists) { state.plantillas = snap.data(); save('fz_plantillas', state.plantillas); renderAll(); }
     }, err => console.error(err));
 }
 
@@ -350,7 +429,7 @@ function renderQuincenaScreen() {
   const totalPresupuestado = gastos.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
   const totalGastado = gastos.reduce((s,g) => s + (Number(g.gastado)||0), 0);
   const meQueda = (Number(q.ingresos)||0) - totalGastado;
-  const cargoCount = gastos.filter(g => g.formaPago === 'cargo').length;
+  const cargoCount = gastos.filter(g => g.formaPago === 'cargo' && g.pagado).length;
 
   const porTipo = {};
   ['Fijos','Variables','Ocio','Ahorro'].forEach(t => porTipo[t] = { presupuestado: 0, gastado: 0 });
@@ -445,8 +524,11 @@ function gastoTarjetaBadge(g) {
   if (!g.formaPago || g.formaPago === 'efectivo') return '';
   const d = state.deudas.find(x => x.id === g.tarjetaId);
   const nombre = d ? d.nombre : '?';
-  if (g.formaPago === 'cargo') return `<span class="fz-gasto-tc">Cargo &rarr; ${nombre}</span>`;
-  return `<span class="fz-gasto-tc" style="background:var(--teal2);color:var(--teal-light)">Pago &rarr; ${nombre}</span>`;
+  const aplicado = !!g.pagado;
+  const estilo = aplicado ? '' : 'style="opacity:.55;border:1px dashed currentColor;background:transparent"';
+  const sufijo = aplicado ? '' : ' (plan)';
+  if (g.formaPago === 'cargo') return `<span class="fz-gasto-tc" ${estilo}>Cargo &rarr; ${nombre}${sufijo}</span>`;
+  return `<span class="fz-gasto-tc" style="${aplicado ? 'background:var(--teal2);color:var(--teal-light)' : 'opacity:.55;border:1px dashed var(--teal-light);background:transparent;color:var(--teal-light)'}">Pago &rarr; ${nombre}${sufijo}</span>`;
 }
 
 function populateTarjetaSelect(selectId, selectedId) {
@@ -474,7 +556,7 @@ function openQuincenaModal(id) {
   editingGastoId = null;
   const isNew = !id;
   document.getElementById('quincena-modal-title').textContent = isNew ? 'Nueva quincena' : 'Editar quincena';
-  document.getElementById('q-copy-row').style.display = isNew && state.quincenas.length > 0 ? 'flex' : 'none';
+  document.getElementById('q-fuente').style.display = isNew ? '' : 'none';
   document.getElementById('quincena-modal-overlay').dataset.editId = id || '';
 
   if (isNew) {
@@ -493,7 +575,7 @@ function openQuincenaModal(id) {
     document.getElementById('q-fin').value = fin;
     document.getElementById('q-ingresos').value = last ? last.ingresos : '';
     document.getElementById('q-ahorros').value = last ? last.ahorros : 0;
-    document.getElementById('q-copiar').checked = true;
+    document.getElementById('q-fuente').value = 'auto';
   } else {
     const q = state.quincenas.find(x => x.id === id);
     document.getElementById('q-label').value = q.label || '';
@@ -519,11 +601,16 @@ function confirmQuincena() {
     Object.assign(q, { label, fechaInicio, fechaFin, ingresos, ahorros });
     saveQuincena(q);
   } else {
-    const copiar = document.getElementById('q-copiar').checked;
+    const fuente = document.getElementById('q-fuente').value;
     const last = state.quincenas[state.quincenas.length - 1];
     let gastos = [];
-    if (copiar && last && last.gastos) {
-      gastos = last.gastos.map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, tarjeta: false }));
+    if (fuente === 'anterior' && last && last.gastos) {
+      gastos = last.gastos.map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null }));
+    } else if (fuente === 'vacia') {
+      gastos = [];
+    } else {
+      const key = fuente === 'p15' || fuente === 'p30' ? fuente : detectarPlantilla(fechaInicio);
+      gastos = (state.plantillas[key] || []).map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null }));
     }
     const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ahorros, gastos };
     state.quincenas.push(q);
@@ -618,6 +705,82 @@ function deleteGasto(gid) {
   q.gastos = q.gastos.filter(x => x.id !== gid);
   saveQuincena(q);
   renderAll();
+}
+
+/* ---------- PLANTILLAS ---------- */
+let editingPlantillaItemId = null;
+
+function savePlantillas() {
+  save('fz_plantillas', state.plantillas);
+  if (db && fzCode) {
+    db.collection('households').doc(fzCode).collection('fz_meta').doc('plantillas').set(state.plantillas, { merge: true }).catch(err => console.error(err));
+  }
+}
+
+function openPlantillaModal() {
+  plantillaTab = 'p15';
+  document.getElementById('pt-tab-p15').classList.add('active');
+  document.getElementById('pt-tab-p30').classList.remove('active');
+  renderPlantillaList();
+  document.getElementById('plantilla-modal-overlay').classList.add('open');
+}
+function closePlantillaModal() { document.getElementById('plantilla-modal-overlay').classList.remove('open'); renderAll(); }
+function switchPlantillaTab(tab) {
+  plantillaTab = tab;
+  document.getElementById('pt-tab-p15').classList.toggle('active', tab === 'p15');
+  document.getElementById('pt-tab-p30').classList.toggle('active', tab === 'p30');
+  renderPlantillaList();
+}
+function renderPlantillaList() {
+  const el = document.getElementById('plantilla-list');
+  const items = state.plantillas[plantillaTab] || [];
+  const total = items.reduce((s,i) => s + (Number(i.presupuestado)||0), 0);
+  if (!items.length) { el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:6px 2px">Sin conceptos en esta plantilla.</p>`; return; }
+  el.innerHTML = items.map(i => `<div class="fz-gasto-item">
+      <div class="fz-gasto-body" onclick="openPlantillaItemModal('${i.id}')">
+        <div class="fz-gasto-nombre">${i.concepto}</div>
+        <div class="fz-gasto-meta">${TIPO_LABEL[i.tipo]}</div>
+      </div>
+      <div class="fz-gasto-amt" onclick="openPlantillaItemModal('${i.id}')"><div class="fz-gastado">${money(i.presupuestado)}</div></div>
+      <div class="fz-gasto-del" onclick="deletePlantillaItem('${i.id}')">&times;</div>
+    </div>`).join('') + `<p style="text-align:right;font-size:11px;color:var(--text2);margin-top:6px">Total: ${money(total)}</p>`;
+}
+function openPlantillaItemModal(id) {
+  editingPlantillaItemId = id;
+  document.getElementById('plantilla-item-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
+  if (id) {
+    const i = state.plantillas[plantillaTab].find(x => x.id === id);
+    document.getElementById('pi-tipo').value = i.tipo;
+    document.getElementById('pi-concepto').value = i.concepto;
+    document.getElementById('pi-presupuestado').value = i.presupuestado;
+  } else {
+    document.getElementById('pi-tipo').value = 'Fijos';
+    document.getElementById('pi-concepto').value = '';
+    document.getElementById('pi-presupuestado').value = '';
+  }
+  document.getElementById('plantilla-item-modal-overlay').classList.add('open');
+}
+function closePlantillaItemModal() { document.getElementById('plantilla-item-modal-overlay').classList.remove('open'); }
+function confirmPlantillaItem() {
+  const concepto = document.getElementById('pi-concepto').value.trim();
+  if (!concepto) { alert('Escribe un concepto.'); return; }
+  const data = { tipo: document.getElementById('pi-tipo').value, concepto, presupuestado: parseFloat(document.getElementById('pi-presupuestado').value) || 0 };
+  if (!state.plantillas[plantillaTab]) state.plantillas[plantillaTab] = [];
+  if (editingPlantillaItemId) {
+    const i = state.plantillas[plantillaTab].find(x => x.id === editingPlantillaItemId);
+    Object.assign(i, data);
+  } else {
+    state.plantillas[plantillaTab].push({ id: uid(), ...data });
+  }
+  savePlantillas();
+  closePlantillaItemModal();
+  renderPlantillaList();
+}
+function deletePlantillaItem(id) {
+  if (!confirm('¿Eliminar este concepto de la plantilla?')) return;
+  state.plantillas[plantillaTab] = state.plantillas[plantillaTab].filter(x => x.id !== id);
+  savePlantillas();
+  renderPlantillaList();
 }
 
 /* ---------- TARJETAS SCREEN ---------- */
