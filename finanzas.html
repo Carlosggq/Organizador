@@ -56,13 +56,14 @@
     <div class="header">
       <div class="header-left">
         <a href="index.html" class="back-link">&larr; Inicio</a>
-        <h1>Plan de salida</h1>
-        <p>Bola de nieve: menor saldo primero</p>
+        <h1>Metas de ahorro</h1>
+        <p>Libertad de tarjetas, emergencia, vacaciones y más</p>
       </div>
       <div class="header-right" id="fz-sync-chip3"></div>
     </div>
     <div class="scroll-content">
       <div id="fz-plan-content"></div>
+      <button class="fz-add-gasto-btn" onclick="openMetaModal(null)">+ Agregar apartado</button>
     </div>
     <nav class="nav-bar" id="fz-nav3"></nav>
   </div>
@@ -97,9 +98,37 @@
     </select>
     <input type="text" id="pi-concepto" placeholder="Concepto" maxlength="40">
     <input type="number" id="pi-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
+    <select id="pi-vincular">
+      <option value="">No vincular a ninguna tarjeta/deuda</option>
+    </select>
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Si lo vinculas, cada vez que crees una quincena con esta plantilla, el concepto quedará listo como "Pago a tarjeta/deuda" — al marcarlo pagado, baja el saldo automáticamente.</p>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closePlantillaItemModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmPlantillaItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- META DE AHORRO MODAL -->
+<div class="modal-overlay" id="meta-modal-overlay">
+  <div class="modal">
+    <h3 id="meta-modal-title">Apartado de ahorro</h3>
+    <input type="text" id="m-nombre" placeholder="Nombre (ej. Vacaciones)" maxlength="30">
+    <select id="m-tipo" onchange="updateMetaTipoVisibility()">
+      <option value="ahorro">Ahorro manual (lo alimento con conceptos)</option>
+      <option value="debt">Automático — libertad de tarjetas (según saldo)</option>
+    </select>
+    <div id="m-ahorro-fields">
+      <input type="number" id="m-meta" placeholder="Meta ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    </div>
+    <div id="m-debt-fields" style="display:none">
+      <p style="font-size:11px;color:var(--text3);margin:4px 2px 6px">Elige qué tarjetas cuentan para esta meta. La meta será la suma de sus saldos actuales.</p>
+      <div id="m-deudas-checks" style="margin-bottom:10px"></div>
+    </div>
+    <input type="text" id="m-donde" placeholder="¿Dónde está guardado? (ej. Nu, Cuenta Didi)" maxlength="40">
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeMetaModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmMeta()">Guardar</button>
     </div>
   </div>
 </div>
@@ -145,7 +174,12 @@
       <option value="cargo">Cargo a tarjeta (sube el saldo de esa tarjeta)</option>
       <option value="pago">Pago a tarjeta (baja el saldo de esa tarjeta)</option>
     </select>
-    <select id="g-tarjetaid" style="display:none"></select>
+    <select id="g-tarjetaid" style="display:none" onchange="updateGastoTarjetaVisibility()"></select>
+    <div id="g-capital-fields" style="display:none">
+      <input type="number" id="g-capital" placeholder="Va a capital ($) — vacío = todo a capital" inputmode="decimal" step="0.01" min="0">
+      <p style="font-size:11px;color:var(--text3);margin:-4px 2px 8px">El resto del pago se cuenta como interés (informativo). Si lo dejas vacío, todo el pago baja el saldo (capital).</p>
+    </div>
+    <select id="g-metaahorro" style="display:none"></select>
     <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px 10px;">
       <span class="toggle"><input type="checkbox" id="g-pagado"><span class="toggle-slider"></span></span>
       Ya está pagado
@@ -223,14 +257,33 @@ function tarjetaSaldoActual(tarjetaId) {
   const d = state.deudas.find(x => x.id === tarjetaId);
   if (!d) return 0;
   const base = Number(d.saldoInicial != null ? d.saldoInicial : d.saldo) || 0;
-  let cargos = 0, pagos = 0;
+  let cargos = 0, pagosCapital = 0;
   state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
     if (g.tarjetaId === tarjetaId && g.pagado) {
       if (g.formaPago === 'cargo') cargos += Number(g.gastado)||0;
-      else if (g.formaPago === 'pago') pagos += Number(g.gastado)||0;
+      else if (g.formaPago === 'pago') {
+        const gastado = Number(g.gastado)||0;
+        const capital = (g.montoCapital != null && g.montoCapital !== '') ? Number(g.montoCapital) : gastado;
+        pagosCapital += capital;
+      }
     }
   }));
-  return base + cargos - pagos;
+  return base + cargos - pagosCapital;
+}
+
+/* Para deudas tipo "préstamo" (ej. Santander): histórico de lo realmente pagado, separando capital e interés */
+function deudaAcumulado(tarjetaId) {
+  let capital = 0, interes = 0, total = 0;
+  state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
+    if (g.tarjetaId === tarjetaId && g.pagado && g.formaPago === 'pago') {
+      const gastado = Number(g.gastado)||0;
+      const cap = (g.montoCapital != null && g.montoCapital !== '') ? Number(g.montoCapital) : gastado;
+      capital += cap;
+      interes += Math.max(0, gastado - cap);
+      total += gastado;
+    }
+  }));
+  return { capital, interes, total };
 }
 
 const PLANTILLAS_DEFAULT = {
@@ -247,7 +300,7 @@ const PLANTILLAS_DEFAULT = {
     { tipo: 'Fijos', concepto: 'Transporte', presupuestado: 400 },
     { tipo: 'Fijos', concepto: 'Telcel', presupuestado: 600 },
     { tipo: 'Variables', concepto: 'Corte cabello', presupuestado: 150 },
-    { tipo: 'Fijos', concepto: 'Santander', presupuestado: 2500 },
+    { tipo: 'Fijos', concepto: 'Santander', presupuestado: 2500, vincularDeuda: 'Santander' },
     { tipo: 'Ocio', concepto: 'Netflix', presupuestado: 269 },
     { tipo: 'Fijos', concepto: 'Semana 1', presupuestado: 800 },
     { tipo: 'Fijos', concepto: 'Claude IA', presupuestado: 400 },
@@ -259,8 +312,12 @@ function withIds(arr) { return arr.map(x => ({ id: uid(), ...x })); }
 let state = {
   quincenas: load('fz_quincenas', []),
   deudas: load('fz_deudas', []),
-  extra: load('fz_extra', 0),
   plantillas: load('fz_plantillas', { p15: withIds(PLANTILLAS_DEFAULT.p15), p30: withIds(PLANTILLAS_DEFAULT.p30) }),
+  metas: load('fz_metas', null) || withIds([
+    { nombre: 'Libertad de tarjetas', tipo: 'debt', deudaIds: [], objetivoInicial: 0, donde: '' },
+    { nombre: 'Ahorro de emergencia', tipo: 'ahorro', meta: 50000, donde: '' },
+    { nombre: 'Vacaciones', tipo: 'ahorro', meta: 0, donde: '' }
+  ]),
   currentQIndex: load('fz_currentQIndex', 0),
   currentScreen: 'fz-quincena'
 };
@@ -289,7 +346,7 @@ let firebaseReady = false;
 let fzCode = localStorage.getItem('fzCode') || null;
 let fsUnsubQuincenas = null;
 let fsUnsubDeudas = null;
-let fsUnsubMeta = null;
+let fsUnsubMetas = null;
 let fsUnsubPlantillas = null;
 
 function firebaseConfigured() { return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'TU_API_KEY_AQUI'; }
@@ -315,7 +372,7 @@ function attachFzListeners() {
   if (!db || !fzCode) return;
   if (fsUnsubQuincenas) fsUnsubQuincenas();
   if (fsUnsubDeudas) fsUnsubDeudas();
-  if (fsUnsubMeta) fsUnsubMeta();
+  if (fsUnsubMetas) fsUnsubMetas();
   if (fsUnsubPlantillas) fsUnsubPlantillas();
 
   fsUnsubQuincenas = db.collection('households').doc(fzCode).collection('fz_quincenas')
@@ -334,9 +391,11 @@ function attachFzListeners() {
       renderAll();
     }, err => console.error(err));
 
-  fsUnsubMeta = db.collection('households').doc(fzCode).collection('fz_meta').doc('plan')
+  fsUnsubMetas = db.collection('households').doc(fzCode).collection('fz_metas')
     .onSnapshot(snap => {
-      if (snap.exists) { state.extra = snap.data().extraPorQuincena || 0; save('fz_extra', state.extra); renderAll(); }
+      state.metas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      save('fz_metas', state.metas);
+      renderAll();
     }, err => console.error(err));
 
   fsUnsubPlantillas = db.collection('households').doc(fzCode).collection('fz_meta').doc('plantillas')
@@ -394,8 +453,8 @@ function navHtml(active) {
       <span>Tarjetas</span>
     </div>
     <div class="nav-item ${active==='fz-plan'?'active':''}" onclick="switchFzScreen('fz-plan')">
-      <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
-      <span>Plan</span>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <span>Metas</span>
     </div>`;
 }
 function switchFzScreen(name) {
@@ -521,6 +580,12 @@ function renderQuincenaScreen() {
 }
 
 function gastoTarjetaBadge(g) {
+  if (g.metaAhorroId) {
+    const m = state.metas.find(x => x.id === g.metaAhorroId);
+    const nombre = m ? m.nombre : '?';
+    const aplicado = !!g.pagado;
+    return `<span class="fz-gasto-tc" style="${aplicado ? 'background:var(--teal2);color:var(--teal-light)' : 'opacity:.55;border:1px dashed var(--teal-light);background:transparent;color:var(--teal-light)'}">Ahorro &rarr; ${nombre}${aplicado ? '' : ' (plan)'}</span>`;
+  }
   if (!g.formaPago || g.formaPago === 'efectivo') return '';
   const d = state.deudas.find(x => x.id === g.tarjetaId);
   const nombre = d ? d.nombre : '?';
@@ -536,11 +601,27 @@ function populateTarjetaSelect(selectId, selectedId) {
   sel.innerHTML = state.deudas.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
   if (selectedId) sel.value = selectedId;
 }
+function populateMetaAhorroSelect(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  const opciones = state.metas.filter(m => m.tipo === 'ahorro');
+  sel.innerHTML = '<option value="">Ninguna</option>' + opciones.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  sel.value = selectedId || '';
+}
 
 function updateGastoTarjetaVisibility() {
   const fp = document.getElementById('g-formapago').value;
-  const sel = document.getElementById('g-tarjetaid');
-  sel.style.display = (fp === 'cargo' || fp === 'pago') ? '' : 'none';
+  const tarjetaSel = document.getElementById('g-tarjetaid');
+  const metaSel = document.getElementById('g-metaahorro');
+  const capFields = document.getElementById('g-capital-fields');
+  tarjetaSel.style.display = (fp === 'cargo' || fp === 'pago') ? '' : 'none';
+  metaSel.style.display = (fp === 'efectivo') ? '' : 'none';
+  if (metaSel.style.display === 'none') metaSel.value = '';
+  let showCapital = false;
+  if (fp === 'pago' && tarjetaSel.value) {
+    const d = state.deudas.find(x => x.id === tarjetaSel.value);
+    if (d && d.tipo === 'deuda') showCapital = true;
+  }
+  capFields.style.display = showCapital ? '' : 'none';
 }
 
 function changeQuincena(dir) {
@@ -610,7 +691,14 @@ function confirmQuincena() {
       gastos = [];
     } else {
       const key = fuente === 'p15' || fuente === 'p30' ? fuente : detectarPlantilla(fechaInicio);
-      gastos = (state.plantillas[key] || []).map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null }));
+      gastos = (state.plantillas[key] || []).map(g => {
+        const base = { id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null, montoCapital: null, metaAhorroId: null };
+        if (g.vincularDeuda) {
+          const d = state.deudas.find(x => x.nombre.toLowerCase() === g.vincularDeuda.toLowerCase());
+          if (d) { base.formaPago = 'pago'; base.tarjetaId = d.id; }
+        }
+        return base;
+      });
     }
     const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ahorros, gastos };
     state.quincenas.push(q);
@@ -637,6 +725,7 @@ function openGastoModal(id) {
   if (!q) return;
   document.getElementById('gasto-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
   populateTarjetaSelect('g-tarjetaid', null);
+  populateMetaAhorroSelect('g-metaahorro', null);
   if (id) {
     const g = q.gastos.find(x => x.id === id);
     document.getElementById('g-tipo').value = g.tipo;
@@ -645,6 +734,8 @@ function openGastoModal(id) {
     document.getElementById('g-gastado').value = g.gastado;
     document.getElementById('g-formapago').value = g.formaPago || 'efectivo';
     if (g.tarjetaId) document.getElementById('g-tarjetaid').value = g.tarjetaId;
+    document.getElementById('g-capital').value = (g.montoCapital != null) ? g.montoCapital : '';
+    populateMetaAhorroSelect('g-metaahorro', g.metaAhorroId || null);
     document.getElementById('g-pagado').checked = !!g.pagado;
   } else {
     document.getElementById('g-tipo').value = 'Fijos';
@@ -652,6 +743,7 @@ function openGastoModal(id) {
     document.getElementById('g-presupuestado').value = '';
     document.getElementById('g-gastado').value = '';
     document.getElementById('g-formapago').value = 'efectivo';
+    document.getElementById('g-capital').value = '';
     document.getElementById('g-pagado').checked = false;
   }
   updateGastoTarjetaVisibility();
@@ -668,6 +760,8 @@ function confirmGasto() {
   if ((formaPago === 'cargo' || formaPago === 'pago') && !state.deudas.length) {
     alert('Primero agrega al menos una tarjeta en la pestaña "Tarjetas".'); return;
   }
+  const capitalVisible = document.getElementById('g-capital-fields').style.display !== 'none';
+  const capitalRaw = document.getElementById('g-capital').value;
   const data = {
     tipo: document.getElementById('g-tipo').value,
     concepto,
@@ -675,6 +769,8 @@ function confirmGasto() {
     gastado: parseFloat(document.getElementById('g-gastado').value) || 0,
     formaPago,
     tarjetaId: (formaPago === 'cargo' || formaPago === 'pago') ? document.getElementById('g-tarjetaid').value : null,
+    montoCapital: (capitalVisible && capitalRaw !== '') ? parseFloat(capitalRaw) : null,
+    metaAhorroId: (formaPago === 'efectivo' && document.getElementById('g-metaahorro').value) ? document.getElementById('g-metaahorro').value : null,
     pagado: document.getElementById('g-pagado').checked
   };
   if (!q.gastos) q.gastos = [];
@@ -739,7 +835,7 @@ function renderPlantillaList() {
   el.innerHTML = items.map(i => `<div class="fz-gasto-item">
       <div class="fz-gasto-body" onclick="openPlantillaItemModal('${i.id}')">
         <div class="fz-gasto-nombre">${i.concepto}</div>
-        <div class="fz-gasto-meta">${TIPO_LABEL[i.tipo]}</div>
+        <div class="fz-gasto-meta">${TIPO_LABEL[i.tipo]}${i.vincularDeuda ? ' · vinculado a ' + i.vincularDeuda : ''}</div>
       </div>
       <div class="fz-gasto-amt" onclick="openPlantillaItemModal('${i.id}')"><div class="fz-gastado">${money(i.presupuestado)}</div></div>
       <div class="fz-gasto-del" onclick="deletePlantillaItem('${i.id}')">&times;</div>
@@ -748,15 +844,20 @@ function renderPlantillaList() {
 function openPlantillaItemModal(id) {
   editingPlantillaItemId = id;
   document.getElementById('plantilla-item-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
+  const selVincular = document.getElementById('pi-vincular');
+  selVincular.innerHTML = '<option value="">No vincular a ninguna tarjeta/deuda</option>' +
+    state.deudas.map(d => `<option value="${d.nombre}">${d.nombre}</option>`).join('');
   if (id) {
     const i = state.plantillas[plantillaTab].find(x => x.id === id);
     document.getElementById('pi-tipo').value = i.tipo;
     document.getElementById('pi-concepto').value = i.concepto;
     document.getElementById('pi-presupuestado').value = i.presupuestado;
+    selVincular.value = i.vincularDeuda || '';
   } else {
     document.getElementById('pi-tipo').value = 'Fijos';
     document.getElementById('pi-concepto').value = '';
     document.getElementById('pi-presupuestado').value = '';
+    selVincular.value = '';
   }
   document.getElementById('plantilla-item-modal-overlay').classList.add('open');
 }
@@ -764,7 +865,7 @@ function closePlantillaItemModal() { document.getElementById('plantilla-item-mod
 function confirmPlantillaItem() {
   const concepto = document.getElementById('pi-concepto').value.trim();
   if (!concepto) { alert('Escribe un concepto.'); return; }
-  const data = { tipo: document.getElementById('pi-tipo').value, concepto, presupuestado: parseFloat(document.getElementById('pi-presupuestado').value) || 0 };
+  const data = { tipo: document.getElementById('pi-tipo').value, concepto, presupuestado: parseFloat(document.getElementById('pi-presupuestado').value) || 0, vincularDeuda: document.getElementById('pi-vincular').value || null };
   if (!state.plantillas[plantillaTab]) state.plantillas[plantillaTab] = [];
   if (editingPlantillaItemId) {
     const i = state.plantillas[plantillaTab].find(x => x.id === editingPlantillaItemId);
@@ -804,6 +905,8 @@ function renderTarjetasScreen() {
     const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
     const proxCorte = formatFechaCorta(proximaFechaDia(d.corte));
     const proxPago = formatFechaCorta(proximaFechaDia(d.diaPago));
+    const esPrestamo = d.tipo === 'deuda';
+    const ac = esPrestamo ? deudaAcumulado(d.id) : null;
     return `<div class="fz-deuda-card">
       <div class="fz-deuda-top">
         <div class="fz-deuda-nombre"><span class="fz-deuda-order">${i+1}</span>${d.nombre}</div>
@@ -816,6 +919,10 @@ function renderTarjetasScreen() {
         ${proxPago ? `<div>Próx. pago: <b>${proxPago}</b></div>` : '<div></div>'}
         ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
       </div>
+      ${esPrestamo ? `<div style="background:var(--bg3);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:11px;color:var(--text2)">
+        Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
+        Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b>
+      </div>` : ''}
       <div class="fz-deuda-actions">
         <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
         <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteDeuda('${d.id}')">Eliminar</button>
@@ -890,104 +997,133 @@ function deleteDeuda(id) {
   renderAll();
 }
 
-/* ---------- PLAN SCREEN ---------- */
-function saveExtra(val) {
-  state.extra = val;
-  save('fz_extra', val);
-  if (db && fzCode) db.collection('households').doc(fzCode).collection('fz_meta').doc('plan').set({ extraPorQuincena: val }, { merge: true }).catch(err => console.error(err));
+/* ---------- METAS DE AHORRO ---------- */
+let editingMetaId = null;
+
+function montoAhorrado(metaId) {
+  let total = 0;
+  state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
+    if (g.metaAhorroId === metaId && g.pagado) total += Number(g.gastado)||0;
+  }));
+  return total;
 }
 
-function simulateSnowball() {
-  const order = orderedDeudas().map(d => ({ nombre: d.nombre, saldo: tarjetaSaldoActual(d.id) })).filter(d => d.saldo > 0);
-  const extra = Number(state.extra) || 0;
-  const timeline = [];
-  let q = 0;
-  const MAX_Q = 60;
-  while (order.some(d => d.saldo > 0) && q < MAX_Q) {
-    q++;
-    let remainingExtra = extra;
-    for (const d of order) {
-      if (remainingExtra <= 0) break;
-      if (d.saldo <= 0) continue;
-      const aplicar = Math.min(d.saldo, remainingExtra);
-      d.saldo -= aplicar;
-      remainingExtra -= aplicar;
-    }
-    timeline.push({ q, estado: order.map(d => ({ nombre: d.nombre, saldo: d.saldo })) });
+function saveMeta(m) {
+  save('fz_metas', state.metas);
+  if (db && fzCode) {
+    const { id, ...rest } = m;
+    db.collection('households').doc(fzCode).collection('fz_metas').doc(id).set(rest, { merge: true }).catch(err => console.error(err));
   }
-  return { timeline, quincenasNecesarias: q, alcanzo: !order.some(d => d.saldo > 0) };
+}
+function deleteMeta(id) {
+  if (!confirm('¿Eliminar este apartado?')) return;
+  state.metas = state.metas.filter(x => x.id !== id);
+  save('fz_metas', state.metas);
+  if (db && fzCode) db.collection('households').doc(fzCode).collection('fz_metas').doc(id).delete().catch(err => console.error(err));
+  renderAll();
+}
+
+function openMetaModal(id) {
+  editingMetaId = id;
+  document.getElementById('meta-modal-title').textContent = id ? 'Editar apartado' : 'Nuevo apartado';
+  const checksEl = document.getElementById('m-deudas-checks');
+  const m = id ? state.metas.find(x => x.id === id) : null;
+  checksEl.innerHTML = state.deudas.map(d => `<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);margin-bottom:6px">
+      <input type="checkbox" value="${d.id}" ${(m && m.deudaIds && m.deudaIds.includes(d.id)) ? 'checked' : ''}> ${d.nombre} (${money(tarjetaSaldoActual(d.id))})
+    </label>`).join('') || '<p style="font-size:11px;color:var(--text3)">Agrega tarjetas primero en la pestaña "Tarjetas".</p>';
+
+  if (m) {
+    document.getElementById('m-nombre').value = m.nombre;
+    document.getElementById('m-tipo').value = m.tipo;
+    document.getElementById('m-meta').value = m.meta || '';
+    document.getElementById('m-donde').value = m.donde || '';
+  } else {
+    document.getElementById('m-nombre').value = '';
+    document.getElementById('m-tipo').value = 'ahorro';
+    document.getElementById('m-meta').value = '';
+    document.getElementById('m-donde').value = '';
+  }
+  updateMetaTipoVisibility();
+  document.getElementById('meta-modal-overlay').classList.add('open');
+}
+function closeMetaModal() { document.getElementById('meta-modal-overlay').classList.remove('open'); }
+function updateMetaTipoVisibility() {
+  const tipo = document.getElementById('m-tipo').value;
+  document.getElementById('m-ahorro-fields').style.display = tipo === 'ahorro' ? '' : 'none';
+  document.getElementById('m-debt-fields').style.display = tipo === 'debt' ? '' : 'none';
+}
+function confirmMeta() {
+  const nombre = document.getElementById('m-nombre').value.trim();
+  if (!nombre) { alert('Escribe un nombre.'); return; }
+  const tipo = document.getElementById('m-tipo').value;
+  const donde = document.getElementById('m-donde').value.trim();
+  let data = { nombre, tipo, donde };
+  if (tipo === 'ahorro') {
+    data.meta = parseFloat(document.getElementById('m-meta').value) || 0;
+  } else {
+    const deudaIds = Array.from(document.querySelectorAll('#m-deudas-checks input:checked')).map(i => i.value);
+    const objetivoInicial = deudaIds.reduce((s, id) => s + tarjetaSaldoActual(id), 0);
+    data.deudaIds = deudaIds;
+    data.objetivoInicial = objetivoInicial;
+  }
+  if (editingMetaId) {
+    const m = state.metas.find(x => x.id === editingMetaId);
+    Object.assign(m, data);
+    saveMeta(m);
+  } else {
+    const m = { id: uid(), ...data };
+    state.metas.push(m);
+    saveMeta(m);
+  }
+  closeMetaModal();
+  renderAll();
+}
+function recalcularMetaDebt(id) {
+  const m = state.metas.find(x => x.id === id);
+  if (!m || m.tipo !== 'debt') return;
+  m.objetivoInicial = (m.deudaIds||[]).reduce((s, did) => s + tarjetaSaldoActual(did), 0);
+  saveMeta(m);
+  renderAll();
 }
 
 function renderPlanScreen() {
   const el = document.getElementById('fz-plan-content');
-  const list = orderedDeudas().filter(d => tarjetaSaldoActual(d.id) > 0);
-  const liberadas = orderedDeudas().filter(d => tarjetaSaldoActual(d.id) <= 0);
-
-  let html = `<div class="settings-row" onclick="promptExtra()">
-    <div>
-      <div class="settings-label">Extra por quincena hacia la bola de nieve</div>
-      <div class="settings-sub">Además de tus pagos fijos normales</div>
-    </div>
-    <div style="font-weight:600;color:var(--teal-light)">${money(state.extra)}</div>
-  </div>`;
-
-  if (!state.deudas.length) {
-    html += `<div class="empty-state" style="margin-top:24px"><p>Agrega tus tarjetas y deudas en la pestaña "Tarjetas" para ver el plan.</p></div>`;
-    el.innerHTML = html;
+  if (!state.metas.length) {
+    el.innerHTML = `<div class="empty-state" style="margin-top:24px"><p>Todavía no tienes apartados. Agrega uno abajo.</p></div>`;
     return;
   }
-
-  html += `<div class="section-title" style="margin-top:18px">Orden de ataque (menor a mayor saldo)</div>`;
-  list.forEach((d, i) => {
-    html += `<div class="fz-plan-order-item">
-      <div class="fz-plan-badge">${i+1}</div>
-      <div class="fz-plan-item-body">
-        <div class="fz-plan-item-name">${d.nombre}</div>
-        <div class="fz-plan-item-meta">Saldo actual: ${money(tarjetaSaldoActual(d.id))}</div>
-      </div>
-    </div>`;
-  });
-  liberadas.forEach(d => {
-    html += `<div class="fz-plan-order-item">
-      <div class="fz-plan-badge done">✓</div>
-      <div class="fz-plan-item-body">
-        <div class="fz-plan-item-name">${d.nombre}</div>
-        <div class="fz-plan-item-meta" style="color:var(--teal-light)">Ya está libre</div>
-      </div>
-    </div>`;
-  });
-
-  if (list.length) {
-    const sim = simulateSnowball();
-    const meses = (sim.quincenasNecesarias / 2).toFixed(1);
-    html += `<div class="section-title" style="margin-top:18px">Proyección</div>`;
-    if (!sim.alcanzo) {
-      html += `<div class="fz-alert-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span>Con ${money(state.extra)}/quincena de extra no alcanza a liberarse en 30 meses. Sube el monto extra o revisa los aportes fijos.</span></div>`;
+  el.innerHTML = state.metas.map(m => {
+    let actual, meta, pct, subtitulo;
+    if (m.tipo === 'debt') {
+      const saldoCombinado = (m.deudaIds||[]).reduce((s, id) => s + tarjetaSaldoActual(id), 0);
+      meta = Number(m.objetivoInicial) || 0;
+      actual = Math.max(0, meta - saldoCombinado);
+      pct = meta > 0 ? Math.min(100, actual / meta * 100) : 0;
+      const nombresDeudas = (m.deudaIds||[]).map(id => { const d = state.deudas.find(x=>x.id===id); return d ? d.nombre : '?'; }).join(' + ');
+      subtitulo = nombresDeudas ? `${nombresDeudas} · saldo restante: ${money(saldoCombinado)}` : 'Selecciona tarjetas en "Editar" para activar esta meta';
     } else {
-      html += `<div class="fz-timeline-item" style="text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--teal-light)">${sim.quincenasNecesarias} quincenas</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">≈ ${meses} meses para tener las ${list.length} deuda(s) restante(s) en $0</div>
-      </div>`;
+      actual = montoAhorrado(m.id);
+      meta = Number(m.meta) || 0;
+      pct = meta > 0 ? Math.min(100, actual / meta * 100) : (actual > 0 ? 100 : 0);
+      subtitulo = 'Se alimenta de conceptos "Ahorro" vinculados en Quincena';
     }
-    html += `<div class="section-title">Próximas quincenas</div>`;
-    sim.timeline.slice(0, 8).forEach(t => {
-      html += `<div class="fz-timeline-item">
-        <div class="fz-timeline-hdr"><span class="fz-timeline-qn">Quincena ${t.q}</span></div>
-        ${t.estado.map(e => `<div class="fz-timeline-row ${e.saldo<=0?'fz-tl-target':''}"><span>${e.nombre}</span><b>${e.saldo<=0?'$0 ✓':money(e.saldo)}</b></div>`).join('')}
-      </div>`;
-    });
-  }
-
-  el.innerHTML = html;
-}
-
-function promptExtra() {
-  const val = prompt('¿Cuánto puedes destinar extra por quincena hacia la bola de nieve?', state.extra || 0);
-  if (val === null) return;
-  const num = parseFloat(val);
-  if (isNaN(num) || num < 0) { alert('Escribe un número válido.'); return; }
-  saveExtra(num);
-  renderAll();
+    return `<div class="fz-deuda-card">
+      <div class="fz-deuda-top">
+        <div class="fz-deuda-nombre">${m.nombre}</div>
+        <div class="fz-deuda-saldo" style="color:var(--teal-light)">${money(actual)}${meta > 0 ? ' / ' + money(meta) : ''}</div>
+      </div>
+      <div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%;background:var(--teal)"></div></div>
+      <div class="fz-deuda-meta-grid">
+        <div style="grid-column:1/-1">${subtitulo}</div>
+        ${m.donde ? `<div style="grid-column:1/-1">Guardado en: <b>${m.donde}</b></div>` : ''}
+      </div>
+      <div class="fz-deuda-actions">
+        <button class="btn btn-cancel" onclick="openMetaModal('${m.id}')">Editar</button>
+        ${m.tipo === 'debt' ? `<button class="btn btn-cancel" onclick="recalcularMetaDebt('${m.id}')">Recalcular meta</button>` : ''}
+        <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteMeta('${m.id}')">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- RENDER ALL ---------- */
