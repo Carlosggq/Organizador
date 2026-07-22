@@ -14,20 +14,782 @@
 </head>
 <body>
 <div id="app">
-  <div class="screen active">
+
+  <!-- SCREEN: QUINCENA -->
+  <div class="screen active" id="screen-fz-quincena">
     <div class="header">
       <div class="header-left">
         <a href="index.html" class="back-link">&larr; Inicio</a>
-        <h1>Finanzas Personales</h1>
-        <p>Próximamente</p>
+        <h1>Finanzas</h1>
+        <p>Presupuesto quincenal</p>
       </div>
+      <div class="header-right" id="fz-sync-chip"></div>
     </div>
     <div class="scroll-content">
-      <div class="empty-state" style="margin-top:60px">
-        <p>Esta sección está en construcción.</p>
+      <div id="fz-quincena-content"></div>
+    </div>
+    <nav class="nav-bar" id="fz-nav1"></nav>
+  </div>
+
+  <!-- SCREEN: TARJETAS -->
+  <div class="screen" id="screen-fz-tarjetas">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1>Tarjetas y deudas</h1>
+        <p>Saldo, corte y pago de cada una</p>
       </div>
+      <div class="header-right" id="fz-sync-chip2"></div>
+    </div>
+    <div class="scroll-content">
+      <div id="fz-tarjetas-content"></div>
+      <button class="fz-add-gasto-btn" onclick="openDeudaModal(null)">+ Agregar tarjeta o deuda</button>
+    </div>
+    <nav class="nav-bar" id="fz-nav2"></nav>
+  </div>
+
+  <!-- SCREEN: PLAN -->
+  <div class="screen" id="screen-fz-plan">
+    <div class="header">
+      <div class="header-left">
+        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <h1>Plan de salida</h1>
+        <p>Bola de nieve: menor saldo primero</p>
+      </div>
+      <div class="header-right" id="fz-sync-chip3"></div>
+    </div>
+    <div class="scroll-content">
+      <div id="fz-plan-content"></div>
+    </div>
+    <nav class="nav-bar" id="fz-nav3"></nav>
+  </div>
+
+</div>
+
+<!-- QUINCENA HEADER MODAL (nueva / editar) -->
+<div class="modal-overlay" id="quincena-modal-overlay">
+  <div class="modal">
+    <h3 id="quincena-modal-title">Quincena</h3>
+    <input type="text" id="q-label" placeholder="Etiqueta (ej. 30 Jul - 15 Ago)" maxlength="40">
+    <input type="date" id="q-inicio">
+    <input type="date" id="q-fin">
+    <input type="number" id="q-ingresos" placeholder="Ingresos ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="q-ahorros" placeholder="Mis ahorros ($)" inputmode="decimal" step="0.01" min="0">
+    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px 10px;" id="q-copy-row">
+      <span class="toggle"><input type="checkbox" id="q-copiar" checked><span class="toggle-slider"></span></span>
+      Copiar conceptos (presupuesto) de la quincena anterior
+    </label>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeQuincenaModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmQuincena()">Guardar</button>
     </div>
   </div>
 </div>
+
+<!-- GASTO MODAL -->
+<div class="modal-overlay" id="gasto-modal-overlay">
+  <div class="modal">
+    <h3 id="gasto-modal-title">Nuevo concepto</h3>
+    <select id="g-tipo">
+      <option value="Fijos">G. Fijos</option>
+      <option value="Variables">G. Variables</option>
+      <option value="Ocio">Ocio</option>
+      <option value="Ahorro">Ahorro</option>
+    </select>
+    <input type="text" id="g-concepto" placeholder="Concepto (ej. Telcel, Renta...)" maxlength="40">
+    <input type="number" id="g-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="g-gastado" placeholder="Gastado ($)" inputmode="decimal" step="0.01" min="0">
+    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px;">
+      <span class="toggle"><input type="checkbox" id="g-tarjeta"><span class="toggle-slider"></span></span>
+      Se paga/pagó con tarjeta de crédito
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px 10px;">
+      <span class="toggle"><input type="checkbox" id="g-pagado"><span class="toggle-slider"></span></span>
+      Ya está pagado
+    </label>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeGastoModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmGasto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEUDA MODAL -->
+<div class="modal-overlay" id="deuda-modal-overlay">
+  <div class="modal">
+    <h3 id="deuda-modal-title">Tarjeta / deuda</h3>
+    <input type="text" id="d-nombre" placeholder="Nombre (ej. Banamex, Klar...)" maxlength="30">
+    <select id="d-tipo">
+      <option value="tarjeta">Tarjeta de crédito propia</option>
+      <option value="deuda">Deuda / préstamo</option>
+    </select>
+    <input type="number" id="d-saldo" placeholder="Saldo usado / pendiente ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="d-limite" placeholder="Límite de crédito ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="d-corte" placeholder="Día de corte (1-31) — opcional" inputmode="numeric" min="1" max="31">
+    <input type="number" id="d-diapago" placeholder="Día límite de pago (1-31) — opcional" inputmode="numeric" min="1" max="31">
+    <input type="number" id="d-interes" placeholder="Tasa de interés (%) — opcional" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="d-aporte" placeholder="Aporte fijo a capital por quincena ($)" inputmode="decimal" step="0.01" min="0">
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">El aporte fijo es lo que ya baja el saldo cada quincena por pagos que tienes comprometidos (ej. mensualidad ÷ 2). El dinero extra de la bola de nieve se suma aparte, según el orden.</p>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeDeudaModal()">Cancelar</button>
+      <button class="btn btn-confirm" onclick="confirmDeuda()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CODE GATE MODAL -->
+<div class="modal-overlay" id="fz-code-gate-overlay">
+  <div class="modal">
+    <h3>Sincronizar Finanzas</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Crea un código nuevo la primera vez, o escribe el código que te compartieron para ver los mismos datos. Es distinto al código de Negocios.</p>
+    <input type="text" id="fz-code-gate-input" placeholder="Código (ej. AB12CD)" maxlength="10" style="text-transform:uppercase">
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="generateNewFzCode()">Generar nuevo</button>
+      <button class="btn btn-confirm" onclick="confirmFzCodeGate()">Usar código</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+function load(key, def) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e) { return def; }
+}
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).substring(2, 8); }
+function money(n) { n = Number(n) || 0; return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fechaCorta(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; return `${parseInt(d)} ${MESES[parseInt(m)-1]}`; }
+
+const TIPO_LABEL = { Fijos: 'G. Fijos', Variables: 'G. Variables', Ocio: 'Ocio', Ahorro: 'Ahorro' };
+const TIPO_COLOR_VAR = { Fijos: '--teal', Variables: '--blue', Ocio: '--amber', Ahorro: '--purple' };
+
+let state = {
+  quincenas: load('fz_quincenas', []),
+  deudas: load('fz_deudas', []),
+  extra: load('fz_extra', 0),
+  currentQIndex: load('fz_currentQIndex', 0),
+  currentScreen: 'fz-quincena'
+};
+
+let editingGastoId = null;
+let editingDeudaId = null;
+
+/* ---------- FIREBASE ---------- */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCpnwKSXXxUf9J6jpHvxSX7PU79iTE2MGk",
+  authDomain: "organizacion-e7834.firebaseapp.com",
+  projectId: "organizacion-e7834",
+  storageBucket: "organizacion-e7834.firebasestorage.app",
+  messagingSenderId: "432809913762",
+  appId: "1:432809913762:web:cba8cd7583a165379dd6fb"
+};
+let db = null;
+let firebaseReady = false;
+let fzCode = localStorage.getItem('fzCode') || null;
+let fsUnsubQuincenas = null;
+let fsUnsubDeudas = null;
+let fsUnsubMeta = null;
+
+function firebaseConfigured() { return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'TU_API_KEY_AQUI'; }
+
+function initFirebase() {
+  if (!firebaseConfigured() || firebaseReady) return;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        firebaseReady = true;
+        updateFzSyncChip(null);
+        if (fzCode) attachFzListeners();
+      }
+    });
+    firebase.auth().signInAnonymously().catch(err => console.error('Firebase auth error', err));
+  } catch (e) { console.error('Firebase init error', e); }
+}
+
+function attachFzListeners() {
+  if (!db || !fzCode) return;
+  if (fsUnsubQuincenas) fsUnsubQuincenas();
+  if (fsUnsubDeudas) fsUnsubDeudas();
+  if (fsUnsubMeta) fsUnsubMeta();
+
+  fsUnsubQuincenas = db.collection('households').doc(fzCode).collection('fz_quincenas')
+    .onSnapshot(snap => {
+      state.quincenas = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.fechaInicio||'').localeCompare(b.fechaInicio||''));
+      save('fz_quincenas', state.quincenas);
+      if (state.currentQIndex >= state.quincenas.length) state.currentQIndex = Math.max(0, state.quincenas.length - 1);
+      renderAll();
+      updateFzSyncChip(true);
+    }, err => { console.error(err); updateFzSyncChip(false); });
+
+  fsUnsubDeudas = db.collection('households').doc(fzCode).collection('fz_deudas')
+    .onSnapshot(snap => {
+      state.deudas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      save('fz_deudas', state.deudas);
+      renderAll();
+    }, err => console.error(err));
+
+  fsUnsubMeta = db.collection('households').doc(fzCode).collection('fz_meta').doc('plan')
+    .onSnapshot(snap => {
+      if (snap.exists) { state.extra = snap.data().extraPorQuincena || 0; save('fz_extra', state.extra); renderAll(); }
+    }, err => console.error(err));
+}
+
+function updateFzSyncChip(ok) {
+  ['fz-sync-chip','fz-sync-chip2','fz-sync-chip3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!fzCode) { el.innerHTML = `<div class="chip" onclick="openFzCodeGateModal()" style="cursor:pointer">Sin sincronizar</div>`; return; }
+    if (ok === true) el.innerHTML = `<div class="chip green" onclick="openFzCodeGateModal()" style="cursor:pointer">Sincronizado</div>`;
+    else if (ok === false) el.innerHTML = `<div class="chip red" onclick="openFzCodeGateModal()" style="cursor:pointer">Sin conexión</div>`;
+    else el.innerHTML = `<div class="chip">Conectando…</div>`;
+  });
+}
+
+function openFzCodeGateModal() {
+  const input = document.getElementById('fz-code-gate-input');
+  input.value = fzCode || '';
+  input.dataset.isNew = '0';
+  document.getElementById('fz-code-gate-overlay').classList.add('open');
+}
+function closeFzCodeGateModal() { document.getElementById('fz-code-gate-overlay').classList.remove('open'); }
+function generateNewFzCode() {
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  document.getElementById('fz-code-gate-input').value = code;
+  document.getElementById('fz-code-gate-input').dataset.isNew = '1';
+}
+function confirmFzCodeGate() {
+  if (!firebaseConfigured()) { alert('Falta configurar Firebase.'); return; }
+  const input = document.getElementById('fz-code-gate-input');
+  const code = input.value.trim().toUpperCase();
+  if (!code || code.length < 4) { alert('Escribe o genera un código de al menos 4 caracteres.'); return; }
+  fzCode = code;
+  localStorage.setItem('fzCode', code);
+  closeFzCodeGateModal();
+  updateFzSyncChip(null);
+  const attach = () => { attachFzListeners(); };
+  if (firebaseReady) attach();
+  else { initFirebase(); const check = setInterval(() => { if (firebaseReady) { clearInterval(check); attach(); } }, 300); }
+}
+
+/* ---------- NAV ---------- */
+function navHtml(active) {
+  return `
+    <div class="nav-item ${active==='fz-quincena'?'active':''}" onclick="switchFzScreen('fz-quincena')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Quincena</span>
+    </div>
+    <div class="nav-item ${active==='fz-tarjetas'?'active':''}" onclick="switchFzScreen('fz-tarjetas')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      <span>Tarjetas</span>
+    </div>
+    <div class="nav-item ${active==='fz-plan'?'active':''}" onclick="switchFzScreen('fz-plan')">
+      <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+      <span>Plan</span>
+    </div>`;
+}
+function switchFzScreen(name) {
+  state.currentScreen = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  renderAll();
+}
+function renderNav() {
+  document.getElementById('fz-nav1').innerHTML = navHtml(state.currentScreen);
+  document.getElementById('fz-nav2').innerHTML = navHtml(state.currentScreen);
+  document.getElementById('fz-nav3').innerHTML = navHtml(state.currentScreen);
+}
+
+/* ---------- QUINCENA SCREEN ---------- */
+function currentQuincena() { return state.quincenas[state.currentQIndex] || null; }
+
+function renderQuincenaScreen() {
+  const el = document.getElementById('fz-quincena-content');
+  const q = currentQuincena();
+
+  if (!q) {
+    el.innerHTML = `<div class="empty-state" style="margin-top:40px"><p>Todavía no tienes ninguna quincena registrada.</p></div>
+      <button class="fz-add-gasto-btn" onclick="openQuincenaModal(null)">+ Crear primera quincena</button>`;
+    return;
+  }
+
+  const isFirst = state.currentQIndex === 0;
+  const isLast = state.currentQIndex === state.quincenas.length - 1;
+  const gastos = q.gastos || [];
+  const totalPresupuestado = gastos.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
+  const totalGastado = gastos.reduce((s,g) => s + (Number(g.gastado)||0), 0);
+  const meQueda = (Number(q.ingresos)||0) - totalGastado;
+  const tarjetaCount = gastos.filter(g => g.tarjeta && !g.pagado).length;
+
+  const porTipo = {};
+  ['Fijos','Variables','Ocio','Ahorro'].forEach(t => porTipo[t] = { presupuestado: 0, gastado: 0 });
+  gastos.forEach(g => { if (porTipo[g.tipo]) { porTipo[g.tipo].presupuestado += Number(g.presupuestado)||0; porTipo[g.tipo].gastado += Number(g.gastado)||0; } });
+  const donutBase = totalGastado > 0 ? 'gastado' : 'presupuestado';
+  const donutTotal = Object.values(porTipo).reduce((s,t) => s + t[donutBase], 0) || 1;
+
+  let acc = 0;
+  const stops = [];
+  ['Fijos','Variables','Ocio','Ahorro'].forEach(t => {
+    const val = porTipo[t][donutBase];
+    if (val <= 0) return;
+    const pct = val / donutTotal * 100;
+    stops.push(`var(${TIPO_COLOR_VAR[t]}) ${acc}% ${acc+pct}%`);
+    acc += pct;
+  });
+  const donutBg = stops.length ? `conic-gradient(${stops.join(',')})` : `var(--bg4)`;
+
+  let html = '';
+
+  html += `<div class="fz-quincena-picker">
+    <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
+    <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
+      <div class="fz-qp-label">${q.label || (fechaCorta(q.fechaInicio) + ' - ' + fechaCorta(q.fechaFin))}</div>
+      <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
+    </div>
+    <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
+  </div>`;
+
+  if (isLast) {
+    html += `<button class="fz-add-gasto-btn" style="margin-bottom:12px" onclick="openQuincenaModal(null)">+ Nueva quincena</button>`;
+  }
+
+  if (tarjetaCount > 0) {
+    html += `<div class="fz-alert-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <span>${tarjetaCount} concepto(s) marcados como pagados con tarjeta de crédito esta quincena — es la señal de recaída al ciclo, revísalos.</span>
+    </div>`;
+  }
+
+  html += `<div class="fz-summary-card">
+    <div class="fz-summary-left">
+      <div class="fz-summary-row"><span class="fz-lbl">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(q.ahorros)}</span></div>
+      <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos</span><span class="fz-val">${money(totalGastado)}</span></div>
+      <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val">${money(meQueda)}</span></div>
+    </div>
+    <div class="fz-donut-wrap">
+      <div class="fz-donut" style="background:${donutBg}"></div>
+      <div class="fz-donut-legend">
+        ${['Fijos','Variables','Ocio','Ahorro'].map(t => `<div class="fz-legend-item"><span class="fz-legend-dot" style="background:var(${TIPO_COLOR_VAR[t]})"></span>${TIPO_LABEL[t]}</div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  ['Fijos','Variables','Ocio','Ahorro'].forEach(tipo => {
+    const items = gastos.filter(g => g.tipo === tipo);
+    html += `<div class="fz-tipo-group">
+      <div class="fz-tipo-hdr">
+        <span class="fz-tipo-name"><span class="fz-tipo-dot" style="background:var(${TIPO_COLOR_VAR[tipo]})"></span>${TIPO_LABEL[tipo]}</span>
+        <span class="fz-tipo-totals">${money(porTipo[tipo].gastado)} / ${money(porTipo[tipo].presupuestado)}</span>
+      </div>`;
+    if (!items.length) {
+      html += `<p style="font-size:11px;color:var(--text3);padding:2px 2px 6px">Sin conceptos todavía.</p>`;
+    } else {
+      items.forEach(g => {
+        html += `<div class="fz-gasto-item ${g.pagado?'done':''}">
+          <div class="fz-gasto-check ${g.pagado?'done':''}" onclick="toggleGastoPagado('${g.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="fz-gasto-body" onclick="openGastoModal('${g.id}')">
+            <div class="fz-gasto-nombre">${g.concepto}${g.tarjeta ? '<span class="fz-gasto-tc">Tarjeta</span>' : ''}</div>
+            <div class="fz-gasto-meta">Presup. ${money(g.presupuestado)}</div>
+          </div>
+          <div class="fz-gasto-amt" onclick="openGastoModal('${g.id}')">
+            <div class="fz-gastado">${money(g.gastado)}</div>
+          </div>
+          <div class="fz-gasto-del" onclick="deleteGasto('${g.id}')">&times;</div>
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+
+  html += `<button class="fz-add-gasto-btn" onclick="openGastoModal(null)">+ Agregar concepto de gasto</button>`;
+
+  el.innerHTML = html;
+}
+
+function changeQuincena(dir) {
+  const ni = state.currentQIndex + dir;
+  if (ni < 0 || ni >= state.quincenas.length) return;
+  state.currentQIndex = ni;
+  save('fz_currentQIndex', ni);
+  renderQuincenaScreen();
+}
+
+/* Quincena modal (crear / editar header) */
+function openQuincenaModal(id) {
+  editingGastoId = null;
+  const isNew = !id;
+  document.getElementById('quincena-modal-title').textContent = isNew ? 'Nueva quincena' : 'Editar quincena';
+  document.getElementById('q-copy-row').style.display = isNew && state.quincenas.length > 0 ? 'flex' : 'none';
+  document.getElementById('quincena-modal-overlay').dataset.editId = id || '';
+
+  if (isNew) {
+    const last = state.quincenas[state.quincenas.length - 1];
+    let inicio = '', fin = '', label = '';
+    if (last && last.fechaFin) {
+      const d = new Date(last.fechaFin + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      inicio = d.toISOString().slice(0,10);
+      const d2 = new Date(d); d2.setDate(d2.getDate() + 15);
+      fin = d2.toISOString().slice(0,10);
+      label = `${fechaCorta(inicio)} - ${fechaCorta(fin)}`;
+    }
+    document.getElementById('q-label').value = label;
+    document.getElementById('q-inicio').value = inicio;
+    document.getElementById('q-fin').value = fin;
+    document.getElementById('q-ingresos').value = last ? last.ingresos : '';
+    document.getElementById('q-ahorros').value = last ? last.ahorros : 0;
+    document.getElementById('q-copiar').checked = true;
+  } else {
+    const q = state.quincenas.find(x => x.id === id);
+    document.getElementById('q-label').value = q.label || '';
+    document.getElementById('q-inicio').value = q.fechaInicio || '';
+    document.getElementById('q-fin').value = q.fechaFin || '';
+    document.getElementById('q-ingresos').value = q.ingresos || '';
+    document.getElementById('q-ahorros').value = q.ahorros || '';
+  }
+  document.getElementById('quincena-modal-overlay').classList.add('open');
+}
+function closeQuincenaModal() { document.getElementById('quincena-modal-overlay').classList.remove('open'); }
+
+function confirmQuincena() {
+  const editId = document.getElementById('quincena-modal-overlay').dataset.editId;
+  const label = document.getElementById('q-label').value.trim();
+  const fechaInicio = document.getElementById('q-inicio').value;
+  const fechaFin = document.getElementById('q-fin').value;
+  const ingresos = parseFloat(document.getElementById('q-ingresos').value) || 0;
+  const ahorros = parseFloat(document.getElementById('q-ahorros').value) || 0;
+
+  if (editId) {
+    const q = state.quincenas.find(x => x.id === editId);
+    Object.assign(q, { label, fechaInicio, fechaFin, ingresos, ahorros });
+    saveQuincena(q);
+  } else {
+    const copiar = document.getElementById('q-copiar').checked;
+    const last = state.quincenas[state.quincenas.length - 1];
+    let gastos = [];
+    if (copiar && last && last.gastos) {
+      gastos = last.gastos.map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, tarjeta: false }));
+    }
+    const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ahorros, gastos };
+    state.quincenas.push(q);
+    state.currentQIndex = state.quincenas.length - 1;
+    save('fz_currentQIndex', state.currentQIndex);
+    saveQuincena(q);
+  }
+  closeQuincenaModal();
+  renderAll();
+}
+
+function saveQuincena(q) {
+  save('fz_quincenas', state.quincenas);
+  if (db && fzCode) {
+    const { id, ...rest } = q;
+    db.collection('households').doc(fzCode).collection('fz_quincenas').doc(id).set(rest, { merge: true }).catch(err => console.error(err));
+  }
+}
+
+/* Gasto modal */
+function openGastoModal(id) {
+  editingGastoId = id;
+  const q = currentQuincena();
+  if (!q) return;
+  document.getElementById('gasto-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
+  if (id) {
+    const g = q.gastos.find(x => x.id === id);
+    document.getElementById('g-tipo').value = g.tipo;
+    document.getElementById('g-concepto').value = g.concepto;
+    document.getElementById('g-presupuestado').value = g.presupuestado;
+    document.getElementById('g-gastado').value = g.gastado;
+    document.getElementById('g-tarjeta').checked = !!g.tarjeta;
+    document.getElementById('g-pagado').checked = !!g.pagado;
+  } else {
+    document.getElementById('g-tipo').value = 'Fijos';
+    document.getElementById('g-concepto').value = '';
+    document.getElementById('g-presupuestado').value = '';
+    document.getElementById('g-gastado').value = '';
+    document.getElementById('g-tarjeta').checked = false;
+    document.getElementById('g-pagado').checked = false;
+  }
+  document.getElementById('gasto-modal-overlay').classList.add('open');
+}
+function closeGastoModal() { document.getElementById('gasto-modal-overlay').classList.remove('open'); }
+
+function confirmGasto() {
+  const q = currentQuincena();
+  if (!q) return;
+  const concepto = document.getElementById('g-concepto').value.trim();
+  if (!concepto) { alert('Escribe un concepto.'); return; }
+  const data = {
+    tipo: document.getElementById('g-tipo').value,
+    concepto,
+    presupuestado: parseFloat(document.getElementById('g-presupuestado').value) || 0,
+    gastado: parseFloat(document.getElementById('g-gastado').value) || 0,
+    tarjeta: document.getElementById('g-tarjeta').checked,
+    pagado: document.getElementById('g-pagado').checked
+  };
+  if (!q.gastos) q.gastos = [];
+  if (editingGastoId) {
+    const g = q.gastos.find(x => x.id === editingGastoId);
+    Object.assign(g, data);
+  } else {
+    q.gastos.push({ id: uid(), ...data });
+  }
+  saveQuincena(q);
+  closeGastoModal();
+  renderAll();
+}
+
+function toggleGastoPagado(gid) {
+  const q = currentQuincena();
+  if (!q) return;
+  const g = q.gastos.find(x => x.id === gid);
+  g.pagado = !g.pagado;
+  saveQuincena(q);
+  renderAll();
+}
+
+function deleteGasto(gid) {
+  const q = currentQuincena();
+  if (!q) return;
+  if (!confirm('¿Eliminar este concepto?')) return;
+  q.gastos = q.gastos.filter(x => x.id !== gid);
+  saveQuincena(q);
+  renderAll();
+}
+
+/* ---------- TARJETAS SCREEN ---------- */
+function orderedDeudas() {
+  return [...state.deudas].sort((a,b) => {
+    if (a.orden != null && b.orden != null) return a.orden - b.orden;
+    return (Number(a.saldo)||0) - (Number(b.saldo)||0);
+  });
+}
+
+function renderTarjetasScreen() {
+  const el = document.getElementById('fz-tarjetas-content');
+  const list = orderedDeudas();
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state" style="margin-top:40px"><p>Todavía no agregas ninguna tarjeta o deuda.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map((d, i) => {
+    const saldo = Number(d.saldo) || 0;
+    const limite = Number(d.limite) || 0;
+    const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
+    return `<div class="fz-deuda-card">
+      <div class="fz-deuda-top">
+        <div class="fz-deuda-nombre"><span class="fz-deuda-order">${i+1}</span>${d.nombre}</div>
+        <div class="fz-deuda-saldo">${saldo <= 0 ? '¡Libre! 🎉' : money(saldo)}</div>
+      </div>
+      ${limite > 0 ? `<div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%"></div></div>` : ''}
+      <div class="fz-deuda-meta-grid">
+        ${limite > 0 ? `<div>Límite: <b>${money(limite)}</b></div>` : '<div></div>'}
+        ${d.corte ? `<div>Corte: <b>día ${d.corte}</b></div>` : '<div></div>'}
+        ${d.diaPago ? `<div>Pago: <b>día ${d.diaPago}</b></div>` : '<div></div>'}
+        ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
+        <div>Aporte fijo/quinc.: <b>${money(d.aporteFijoQuincenal)}</b></div>
+      </div>
+      <div class="fz-deuda-actions">
+        <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
+        <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteDeuda('${d.id}')">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openDeudaModal(id) {
+  editingDeudaId = id;
+  document.getElementById('deuda-modal-title').textContent = id ? 'Editar tarjeta / deuda' : 'Nueva tarjeta / deuda';
+  if (id) {
+    const d = state.deudas.find(x => x.id === id);
+    document.getElementById('d-nombre').value = d.nombre;
+    document.getElementById('d-tipo').value = d.tipo || 'tarjeta';
+    document.getElementById('d-saldo').value = d.saldo;
+    document.getElementById('d-limite').value = d.limite || '';
+    document.getElementById('d-corte').value = d.corte || '';
+    document.getElementById('d-diapago').value = d.diaPago || '';
+    document.getElementById('d-interes').value = d.tasaInteres || '';
+    document.getElementById('d-aporte').value = d.aporteFijoQuincenal || '';
+  } else {
+    document.getElementById('d-nombre').value = '';
+    document.getElementById('d-tipo').value = 'tarjeta';
+    document.getElementById('d-saldo').value = '';
+    document.getElementById('d-limite').value = '';
+    document.getElementById('d-corte').value = '';
+    document.getElementById('d-diapago').value = '';
+    document.getElementById('d-interes').value = '';
+    document.getElementById('d-aporte').value = '';
+  }
+  document.getElementById('deuda-modal-overlay').classList.add('open');
+}
+function closeDeudaModal() { document.getElementById('deuda-modal-overlay').classList.remove('open'); }
+
+function confirmDeuda() {
+  const nombre = document.getElementById('d-nombre').value.trim();
+  if (!nombre) { alert('Escribe un nombre.'); return; }
+  const data = {
+    nombre,
+    tipo: document.getElementById('d-tipo').value,
+    saldo: parseFloat(document.getElementById('d-saldo').value) || 0,
+    limite: parseFloat(document.getElementById('d-limite').value) || 0,
+    corte: parseInt(document.getElementById('d-corte').value) || null,
+    diaPago: parseInt(document.getElementById('d-diapago').value) || null,
+    tasaInteres: parseFloat(document.getElementById('d-interes').value) || 0,
+    aporteFijoQuincenal: parseFloat(document.getElementById('d-aporte').value) || 0
+  };
+  if (editingDeudaId) {
+    const d = state.deudas.find(x => x.id === editingDeudaId);
+    Object.assign(d, data);
+    saveDeuda(d);
+  } else {
+    const d = { id: uid(), orden: state.deudas.length, ...data };
+    state.deudas.push(d);
+    saveDeuda(d);
+  }
+  closeDeudaModal();
+  renderAll();
+}
+
+function saveDeuda(d) {
+  save('fz_deudas', state.deudas);
+  if (db && fzCode) {
+    const { id, ...rest } = d;
+    db.collection('households').doc(fzCode).collection('fz_deudas').doc(id).set(rest, { merge: true }).catch(err => console.error(err));
+  }
+}
+
+function deleteDeuda(id) {
+  if (!confirm('¿Eliminar esta tarjeta/deuda?')) return;
+  state.deudas = state.deudas.filter(x => x.id !== id);
+  save('fz_deudas', state.deudas);
+  if (db && fzCode) db.collection('households').doc(fzCode).collection('fz_deudas').doc(id).delete().catch(err => console.error(err));
+  renderAll();
+}
+
+/* ---------- PLAN SCREEN ---------- */
+function saveExtra(val) {
+  state.extra = val;
+  save('fz_extra', val);
+  if (db && fzCode) db.collection('households').doc(fzCode).collection('fz_meta').doc('plan').set({ extraPorQuincena: val }, { merge: true }).catch(err => console.error(err));
+}
+
+function simulateSnowball() {
+  const order = orderedDeudas().map(d => ({ ...d, saldo: Number(d.saldo)||0, aporteFijoQuincenal: Number(d.aporteFijoQuincenal)||0 })).filter(d => d.saldo > 0);
+  const extra = Number(state.extra) || 0;
+  const timeline = [];
+  let q = 0;
+  const MAX_Q = 60;
+  while (order.some(d => d.saldo > 0) && q < MAX_Q) {
+    q++;
+    order.forEach(d => { if (d.saldo > 0) d.saldo = Math.max(0, d.saldo - d.aporteFijoQuincenal); });
+    let remainingExtra = extra;
+    for (const d of order) {
+      if (remainingExtra <= 0) break;
+      if (d.saldo <= 0) continue;
+      const aplicar = Math.min(d.saldo, remainingExtra);
+      d.saldo -= aplicar;
+      remainingExtra -= aplicar;
+    }
+    timeline.push({ q, estado: order.map(d => ({ nombre: d.nombre, saldo: d.saldo })) });
+  }
+  return { timeline, quincenasNecesarias: q, alcanzo: !order.some(d => d.saldo > 0) };
+}
+
+function renderPlanScreen() {
+  const el = document.getElementById('fz-plan-content');
+  const list = orderedDeudas().filter(d => (Number(d.saldo)||0) > 0);
+  const liberadas = orderedDeudas().filter(d => (Number(d.saldo)||0) <= 0);
+
+  let html = `<div class="settings-row" onclick="promptExtra()">
+    <div>
+      <div class="settings-label">Extra por quincena hacia la bola de nieve</div>
+      <div class="settings-sub">Además de tus pagos fijos normales</div>
+    </div>
+    <div style="font-weight:600;color:var(--teal-light)">${money(state.extra)}</div>
+  </div>`;
+
+  if (!state.deudas.length) {
+    html += `<div class="empty-state" style="margin-top:24px"><p>Agrega tus tarjetas y deudas en la pestaña "Tarjetas" para ver el plan.</p></div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="section-title" style="margin-top:18px">Orden de ataque (menor a mayor saldo)</div>`;
+  list.forEach((d, i) => {
+    html += `<div class="fz-plan-order-item">
+      <div class="fz-plan-badge">${i+1}</div>
+      <div class="fz-plan-item-body">
+        <div class="fz-plan-item-name">${d.nombre}</div>
+        <div class="fz-plan-item-meta">Saldo actual: ${money(d.saldo)} · Aporte fijo: ${money(d.aporteFijoQuincenal)}/quincena</div>
+      </div>
+    </div>`;
+  });
+  liberadas.forEach(d => {
+    html += `<div class="fz-plan-order-item">
+      <div class="fz-plan-badge done">✓</div>
+      <div class="fz-plan-item-body">
+        <div class="fz-plan-item-name">${d.nombre}</div>
+        <div class="fz-plan-item-meta" style="color:var(--teal-light)">Ya está libre</div>
+      </div>
+    </div>`;
+  });
+
+  if (list.length) {
+    const sim = simulateSnowball();
+    const meses = (sim.quincenasNecesarias / 2).toFixed(1);
+    html += `<div class="section-title" style="margin-top:18px">Proyección</div>`;
+    if (!sim.alcanzo) {
+      html += `<div class="fz-alert-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span>Con ${money(state.extra)}/quincena de extra no alcanza a liberarse en 30 meses. Sube el monto extra o revisa los aportes fijos.</span></div>`;
+    } else {
+      html += `<div class="fz-timeline-item" style="text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--teal-light)">${sim.quincenasNecesarias} quincenas</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">≈ ${meses} meses para tener las ${list.length} deuda(s) restante(s) en $0</div>
+      </div>`;
+    }
+    html += `<div class="section-title">Próximas quincenas</div>`;
+    sim.timeline.slice(0, 8).forEach(t => {
+      html += `<div class="fz-timeline-item">
+        <div class="fz-timeline-hdr"><span class="fz-timeline-qn">Quincena ${t.q}</span></div>
+        ${t.estado.map(e => `<div class="fz-timeline-row ${e.saldo<=0?'fz-tl-target':''}"><span>${e.nombre}</span><b>${e.saldo<=0?'$0 ✓':money(e.saldo)}</b></div>`).join('')}
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+function promptExtra() {
+  const val = prompt('¿Cuánto puedes destinar extra por quincena hacia la bola de nieve?', state.extra || 0);
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0) { alert('Escribe un número válido.'); return; }
+  saveExtra(num);
+  renderAll();
+}
+
+/* ---------- RENDER ALL ---------- */
+function renderAll() {
+  renderNav();
+  renderQuincenaScreen();
+  renderTarjetasScreen();
+  renderPlanScreen();
+  updateFzSyncChip(fzCode ? (firebaseReady ? true : null) : null);
+}
+
+/* ---------- INIT ---------- */
+initFirebase();
+if (fzCode && firebaseConfigured()) {
+  const check = setInterval(() => { if (firebaseReady) { clearInterval(check); attachFzListeners(); } }, 300);
+}
+renderAll();
+</script>
 </body>
 </html>

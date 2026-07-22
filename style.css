@@ -235,3 +235,85 @@
 /* Back-to-home link used in Organizacion / Negocios / Finanzas headers */
 .back-link { font-size:12px; color:var(--text3); text-decoration:none; display:inline-block; margin-bottom:4px; }
 .back-link:active { color:var(--text2); }
+
+/* FINANZAS */
+.fz-quincena-picker { display:flex; align-items:center; justify-content:space-between; background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:12px; }
+.fz-quincena-picker .fz-qp-label { font-size:13px; font-weight:500; }
+.fz-quincena-picker .fz-qp-sub { font-size:11px; color:var(--text2); margin-top:1px; }
+.fz-qp-arrow { color:var(--text3); font-size:20px; padding:4px 10px; cursor:pointer; user-select:none; }
+.fz-qp-arrow:active { color:var(--text2); }
+
+.fz-summary-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:14px; display:flex; align-items:center; gap:16px; }
+.fz-summary-left { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.fz-summary-row { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--text2); }
+.fz-summary-row .fz-val { font-size:13px; color:var(--text); font-weight:500; }
+.fz-summary-row.fz-total { border-top:0.5px solid var(--border); padding-top:7px; margin-top:2px; }
+.fz-summary-row.fz-total .fz-lbl { color:var(--red-light); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+.fz-summary-row.fz-resta .fz-lbl { color:var(--teal-light); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+.fz-summary-row.fz-resta .fz-val { color:var(--teal-light); font-size:16px; font-weight:700; }
+.fz-summary-row.fz-total .fz-val { color:var(--red-light); }
+
+.fz-donut-wrap { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.fz-donut { width:88px; height:88px; border-radius:50%; position:relative; }
+.fz-donut::after { content:''; position:absolute; inset:14px; background:var(--bg2); border-radius:50%; }
+.fz-donut-legend { display:flex; flex-wrap:wrap; gap:4px 8px; justify-content:center; max-width:110px; }
+.fz-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--text2); }
+.fz-legend-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+.fz-alert-banner { background:var(--red); border:0.5px solid var(--red-light); border-radius:12px; padding:10px 12px; margin-bottom:12px; font-size:12px; color:var(--red-light); display:flex; align-items:flex-start; gap:8px; }
+.fz-alert-banner svg { width:16px; height:16px; flex-shrink:0; margin-top:1px; }
+
+.fz-tipo-group { margin-bottom:4px; }
+.fz-tipo-hdr { display:flex; align-items:center; justify-content:space-between; padding:2px 2px; margin:14px 0 6px; }
+.fz-tipo-hdr:first-child { margin-top:0; }
+.fz-tipo-name { font-size:11px; text-transform:uppercase; letter-spacing:0.6px; font-weight:600; display:flex; align-items:center; gap:6px; }
+.fz-tipo-dot { width:8px; height:8px; border-radius:50%; }
+.fz-tipo-totals { font-size:11px; color:var(--text2); }
+
+.fz-gasto-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:11px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+.fz-gasto-check { width:20px; height:20px; border-radius:50%; border:1.5px solid var(--border2); flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; }
+.fz-gasto-check.done { background:var(--teal); border-color:var(--teal); }
+.fz-gasto-check svg { opacity:0; transition:opacity .15s; width:12px; height:12px; }
+.fz-gasto-check.done svg { opacity:1; }
+.fz-gasto-body { flex:1; min-width:0; }
+.fz-gasto-nombre { font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.fz-gasto-item.done .fz-gasto-nombre { color:var(--text3); text-decoration:line-through; }
+.fz-gasto-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+.fz-gasto-tc { font-size:9px; background:var(--coral); color:var(--coral-light); padding:1px 6px; border-radius:8px; font-weight:500; }
+.fz-gasto-amt { text-align:right; flex-shrink:0; }
+.fz-gasto-amt .fz-presup { font-size:11px; color:var(--text3); }
+.fz-gasto-amt .fz-gastado { font-size:13.5px; font-weight:600; }
+.fz-gasto-del { color:var(--text3); font-size:17px; line-height:1; padding-left:2px; cursor:pointer; flex-shrink:0; }
+
+.fz-add-gasto-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; border:1px dashed var(--border2); border-radius:12px; background:transparent; color:var(--text3); font-size:13px; cursor:pointer; width:100%; margin-top:8px; }
+.fz-add-gasto-btn:active { color:var(--text2); border-color:var(--teal); }
+
+/* Tarjetas / deudas */
+.fz-deuda-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:14px; padding:14px; margin-bottom:10px; }
+.fz-deuda-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.fz-deuda-nombre { font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px; }
+.fz-deuda-order { width:20px; height:20px; border-radius:6px; background:var(--bg4); color:var(--text2); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.fz-deuda-saldo { font-size:16px; font-weight:700; color:var(--red-light); }
+.fz-deuda-bar-track { height:7px; background:var(--bg4); border-radius:4px; overflow:hidden; margin-bottom:8px; }
+.fz-deuda-bar-fill { height:100%; background:var(--red); border-radius:4px; transition:width .4s ease; }
+.fz-deuda-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; font-size:11px; color:var(--text2); }
+.fz-deuda-meta-grid b { color:var(--text); font-weight:500; }
+.fz-deuda-actions { display:flex; gap:8px; margin-top:10px; }
+.fz-deuda-actions .btn { padding:9px; font-size:12.5px; }
+
+/* Plan de salida */
+.fz-plan-order-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+.fz-plan-badge { width:24px; height:24px; border-radius:50%; background:var(--teal2); color:var(--teal-light); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.fz-plan-badge.done { background:var(--bg4); color:var(--text3); }
+.fz-plan-item-body { flex:1; }
+.fz-plan-item-name { font-size:13px; }
+.fz-plan-item-meta { font-size:11px; color:var(--text2); margin-top:1px; }
+
+.fz-timeline-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+.fz-timeline-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.fz-timeline-qn { font-size:12px; font-weight:600; color:var(--teal-light); }
+.fz-timeline-fecha { font-size:11px; color:var(--text3); }
+.fz-timeline-row { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--text2); padding:3px 0; }
+.fz-timeline-row b { color:var(--text); font-weight:500; }
+.fz-timeline-row.fz-tl-target b { color:var(--teal-light); }
+.fz-timeline-libre { text-align:center; padding:6px; margin-top:4px; background:var(--teal2); border-radius:8px; font-size:11px; color:var(--teal-light); font-weight:600; }
