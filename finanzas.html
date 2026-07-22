@@ -99,10 +99,12 @@
     <input type="text" id="g-concepto" placeholder="Concepto (ej. Telcel, Renta...)" maxlength="40">
     <input type="number" id="g-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
     <input type="number" id="g-gastado" placeholder="Gastado ($)" inputmode="decimal" step="0.01" min="0">
-    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px;">
-      <span class="toggle"><input type="checkbox" id="g-tarjeta"><span class="toggle-slider"></span></span>
-      Se paga/pagó con tarjeta de crédito
-    </label>
+    <select id="g-formapago" onchange="updateGastoTarjetaVisibility()">
+      <option value="efectivo">Efectivo / cuenta</option>
+      <option value="cargo">Cargo a tarjeta (sube el saldo de esa tarjeta)</option>
+      <option value="pago">Pago a tarjeta (baja el saldo de esa tarjeta)</option>
+    </select>
+    <select id="g-tarjetaid" style="display:none"></select>
     <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px 10px;">
       <span class="toggle"><input type="checkbox" id="g-pagado"><span class="toggle-slider"></span></span>
       Ya está pagado
@@ -123,13 +125,12 @@
       <option value="tarjeta">Tarjeta de crédito propia</option>
       <option value="deuda">Deuda / préstamo</option>
     </select>
-    <input type="number" id="d-saldo" placeholder="Saldo usado / pendiente ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="d-saldoinicial" placeholder="Saldo inicial ($)" inputmode="decimal" step="0.01" min="0">
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Es tu punto de partida (checkpoint). A partir de aquí, el saldo real sube con cada "Cargo a tarjeta" y baja con cada "Pago a tarjeta" que registres en Quincena — no necesitas volver a capturarlo a mano.</p>
     <input type="number" id="d-limite" placeholder="Límite de crédito ($) — opcional" inputmode="decimal" step="0.01" min="0">
     <input type="number" id="d-corte" placeholder="Día de corte (1-31) — opcional" inputmode="numeric" min="1" max="31">
     <input type="number" id="d-diapago" placeholder="Día límite de pago (1-31) — opcional" inputmode="numeric" min="1" max="31">
     <input type="number" id="d-interes" placeholder="Tasa de interés (%) — opcional" inputmode="decimal" step="0.01" min="0">
-    <input type="number" id="d-aporte" placeholder="Aporte fijo a capital por quincena ($)" inputmode="decimal" step="0.01" min="0">
-    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">El aporte fijo es lo que ya baja el saldo cada quincena por pagos que tienes comprometidos (ej. mensualidad ÷ 2). El dinero extra de la bola de nieve se suma aparte, según el orden.</p>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeDeudaModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmDeuda()">Guardar</button>
@@ -164,6 +165,32 @@ function fechaCorta(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); 
 
 const TIPO_LABEL = { Fijos: 'G. Fijos', Variables: 'G. Variables', Ocio: 'Ocio', Ahorro: 'Ahorro' };
 const TIPO_COLOR_VAR = { Fijos: '--teal', Variables: '--blue', Ocio: '--amber', Ahorro: '--purple' };
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function proximaFechaDia(diaMes) {
+  if (!diaMes) return null;
+  const hoy = new Date();
+  let mes = hoy.getMonth(), anio = hoy.getFullYear();
+  if (hoy.getDate() > diaMes) { mes += 1; if (mes > 11) { mes = 0; anio++; } }
+  return new Date(anio, mes, diaMes);
+}
+function formatFechaCorta(d) { if (!d) return ''; return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; }
+
+/* Saldo real de una tarjeta = saldo inicial (checkpoint) + todos los cargos - todos los pagos
+   registrados en cualquier quincena. Así nunca se desincroniza aunque edites o borres un gasto. */
+function tarjetaSaldoActual(tarjetaId) {
+  const d = state.deudas.find(x => x.id === tarjetaId);
+  if (!d) return 0;
+  const base = Number(d.saldoInicial != null ? d.saldoInicial : d.saldo) || 0;
+  let cargos = 0, pagos = 0;
+  state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
+    if (g.tarjetaId === tarjetaId) {
+      if (g.formaPago === 'cargo') cargos += Number(g.gastado)||0;
+      else if (g.formaPago === 'pago') pagos += Number(g.gastado)||0;
+    }
+  }));
+  return base + cargos - pagos;
+}
 
 let state = {
   quincenas: load('fz_quincenas', []),
@@ -323,7 +350,7 @@ function renderQuincenaScreen() {
   const totalPresupuestado = gastos.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
   const totalGastado = gastos.reduce((s,g) => s + (Number(g.gastado)||0), 0);
   const meQueda = (Number(q.ingresos)||0) - totalGastado;
-  const tarjetaCount = gastos.filter(g => g.tarjeta && !g.pagado).length;
+  const cargoCount = gastos.filter(g => g.formaPago === 'cargo').length;
 
   const porTipo = {};
   ['Fijos','Variables','Ocio','Ahorro'].forEach(t => porTipo[t] = { presupuestado: 0, gastado: 0 });
@@ -357,10 +384,10 @@ function renderQuincenaScreen() {
     html += `<button class="fz-add-gasto-btn" style="margin-bottom:12px" onclick="openQuincenaModal(null)">+ Nueva quincena</button>`;
   }
 
-  if (tarjetaCount > 0) {
+  if (cargoCount > 0) {
     html += `<div class="fz-alert-banner">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      <span>${tarjetaCount} concepto(s) marcados como pagados con tarjeta de crédito esta quincena — es la señal de recaída al ciclo, revísalos.</span>
+      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — es la señal de recaída al ciclo, revísalos.</span>
     </div>`;
   }
 
@@ -396,7 +423,7 @@ function renderQuincenaScreen() {
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
           <div class="fz-gasto-body" onclick="openGastoModal('${g.id}')">
-            <div class="fz-gasto-nombre">${g.concepto}${g.tarjeta ? '<span class="fz-gasto-tc">Tarjeta</span>' : ''}</div>
+            <div class="fz-gasto-nombre">${g.concepto}${gastoTarjetaBadge(g)}</div>
             <div class="fz-gasto-meta">Presup. ${money(g.presupuestado)}</div>
           </div>
           <div class="fz-gasto-amt" onclick="openGastoModal('${g.id}')">
@@ -412,6 +439,26 @@ function renderQuincenaScreen() {
   html += `<button class="fz-add-gasto-btn" onclick="openGastoModal(null)">+ Agregar concepto de gasto</button>`;
 
   el.innerHTML = html;
+}
+
+function gastoTarjetaBadge(g) {
+  if (!g.formaPago || g.formaPago === 'efectivo') return '';
+  const d = state.deudas.find(x => x.id === g.tarjetaId);
+  const nombre = d ? d.nombre : '?';
+  if (g.formaPago === 'cargo') return `<span class="fz-gasto-tc">Cargo &rarr; ${nombre}</span>`;
+  return `<span class="fz-gasto-tc" style="background:var(--teal2);color:var(--teal-light)">Pago &rarr; ${nombre}</span>`;
+}
+
+function populateTarjetaSelect(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = state.deudas.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
+  if (selectedId) sel.value = selectedId;
+}
+
+function updateGastoTarjetaVisibility() {
+  const fp = document.getElementById('g-formapago').value;
+  const sel = document.getElementById('g-tarjetaid');
+  sel.style.display = (fp === 'cargo' || fp === 'pago') ? '' : 'none';
 }
 
 function changeQuincena(dir) {
@@ -502,22 +549,25 @@ function openGastoModal(id) {
   const q = currentQuincena();
   if (!q) return;
   document.getElementById('gasto-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
+  populateTarjetaSelect('g-tarjetaid', null);
   if (id) {
     const g = q.gastos.find(x => x.id === id);
     document.getElementById('g-tipo').value = g.tipo;
     document.getElementById('g-concepto').value = g.concepto;
     document.getElementById('g-presupuestado').value = g.presupuestado;
     document.getElementById('g-gastado').value = g.gastado;
-    document.getElementById('g-tarjeta').checked = !!g.tarjeta;
+    document.getElementById('g-formapago').value = g.formaPago || 'efectivo';
+    if (g.tarjetaId) document.getElementById('g-tarjetaid').value = g.tarjetaId;
     document.getElementById('g-pagado').checked = !!g.pagado;
   } else {
     document.getElementById('g-tipo').value = 'Fijos';
     document.getElementById('g-concepto').value = '';
     document.getElementById('g-presupuestado').value = '';
     document.getElementById('g-gastado').value = '';
-    document.getElementById('g-tarjeta').checked = false;
+    document.getElementById('g-formapago').value = 'efectivo';
     document.getElementById('g-pagado').checked = false;
   }
+  updateGastoTarjetaVisibility();
   document.getElementById('gasto-modal-overlay').classList.add('open');
 }
 function closeGastoModal() { document.getElementById('gasto-modal-overlay').classList.remove('open'); }
@@ -527,12 +577,17 @@ function confirmGasto() {
   if (!q) return;
   const concepto = document.getElementById('g-concepto').value.trim();
   if (!concepto) { alert('Escribe un concepto.'); return; }
+  const formaPago = document.getElementById('g-formapago').value;
+  if ((formaPago === 'cargo' || formaPago === 'pago') && !state.deudas.length) {
+    alert('Primero agrega al menos una tarjeta en la pestaña "Tarjetas".'); return;
+  }
   const data = {
     tipo: document.getElementById('g-tipo').value,
     concepto,
     presupuestado: parseFloat(document.getElementById('g-presupuestado').value) || 0,
     gastado: parseFloat(document.getElementById('g-gastado').value) || 0,
-    tarjeta: document.getElementById('g-tarjeta').checked,
+    formaPago,
+    tarjetaId: (formaPago === 'cargo' || formaPago === 'pago') ? document.getElementById('g-tarjetaid').value : null,
     pagado: document.getElementById('g-pagado').checked
   };
   if (!q.gastos) q.gastos = [];
@@ -569,7 +624,7 @@ function deleteGasto(gid) {
 function orderedDeudas() {
   return [...state.deudas].sort((a,b) => {
     if (a.orden != null && b.orden != null) return a.orden - b.orden;
-    return (Number(a.saldo)||0) - (Number(b.saldo)||0);
+    return tarjetaSaldoActual(a.id) - tarjetaSaldoActual(b.id);
   });
 }
 
@@ -581,9 +636,11 @@ function renderTarjetasScreen() {
     return;
   }
   el.innerHTML = list.map((d, i) => {
-    const saldo = Number(d.saldo) || 0;
+    const saldo = tarjetaSaldoActual(d.id);
     const limite = Number(d.limite) || 0;
     const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
+    const proxCorte = formatFechaCorta(proximaFechaDia(d.corte));
+    const proxPago = formatFechaCorta(proximaFechaDia(d.diaPago));
     return `<div class="fz-deuda-card">
       <div class="fz-deuda-top">
         <div class="fz-deuda-nombre"><span class="fz-deuda-order">${i+1}</span>${d.nombre}</div>
@@ -592,10 +649,9 @@ function renderTarjetasScreen() {
       ${limite > 0 ? `<div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%"></div></div>` : ''}
       <div class="fz-deuda-meta-grid">
         ${limite > 0 ? `<div>Límite: <b>${money(limite)}</b></div>` : '<div></div>'}
-        ${d.corte ? `<div>Corte: <b>día ${d.corte}</b></div>` : '<div></div>'}
-        ${d.diaPago ? `<div>Pago: <b>día ${d.diaPago}</b></div>` : '<div></div>'}
+        ${proxCorte ? `<div>Próx. corte: <b>${proxCorte}</b></div>` : '<div></div>'}
+        ${proxPago ? `<div>Próx. pago: <b>${proxPago}</b></div>` : '<div></div>'}
         ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
-        <div>Aporte fijo/quinc.: <b>${money(d.aporteFijoQuincenal)}</b></div>
       </div>
       <div class="fz-deuda-actions">
         <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
@@ -612,21 +668,19 @@ function openDeudaModal(id) {
     const d = state.deudas.find(x => x.id === id);
     document.getElementById('d-nombre').value = d.nombre;
     document.getElementById('d-tipo').value = d.tipo || 'tarjeta';
-    document.getElementById('d-saldo').value = d.saldo;
+    document.getElementById('d-saldoinicial').value = d.saldoInicial != null ? d.saldoInicial : (d.saldo || '');
     document.getElementById('d-limite').value = d.limite || '';
     document.getElementById('d-corte').value = d.corte || '';
     document.getElementById('d-diapago').value = d.diaPago || '';
     document.getElementById('d-interes').value = d.tasaInteres || '';
-    document.getElementById('d-aporte').value = d.aporteFijoQuincenal || '';
   } else {
     document.getElementById('d-nombre').value = '';
     document.getElementById('d-tipo').value = 'tarjeta';
-    document.getElementById('d-saldo').value = '';
+    document.getElementById('d-saldoinicial').value = '';
     document.getElementById('d-limite').value = '';
     document.getElementById('d-corte').value = '';
     document.getElementById('d-diapago').value = '';
     document.getElementById('d-interes').value = '';
-    document.getElementById('d-aporte').value = '';
   }
   document.getElementById('deuda-modal-overlay').classList.add('open');
 }
@@ -638,12 +692,11 @@ function confirmDeuda() {
   const data = {
     nombre,
     tipo: document.getElementById('d-tipo').value,
-    saldo: parseFloat(document.getElementById('d-saldo').value) || 0,
+    saldoInicial: parseFloat(document.getElementById('d-saldoinicial').value) || 0,
     limite: parseFloat(document.getElementById('d-limite').value) || 0,
     corte: parseInt(document.getElementById('d-corte').value) || null,
     diaPago: parseInt(document.getElementById('d-diapago').value) || null,
-    tasaInteres: parseFloat(document.getElementById('d-interes').value) || 0,
-    aporteFijoQuincenal: parseFloat(document.getElementById('d-aporte').value) || 0
+    tasaInteres: parseFloat(document.getElementById('d-interes').value) || 0
   };
   if (editingDeudaId) {
     const d = state.deudas.find(x => x.id === editingDeudaId);
@@ -682,14 +735,13 @@ function saveExtra(val) {
 }
 
 function simulateSnowball() {
-  const order = orderedDeudas().map(d => ({ ...d, saldo: Number(d.saldo)||0, aporteFijoQuincenal: Number(d.aporteFijoQuincenal)||0 })).filter(d => d.saldo > 0);
+  const order = orderedDeudas().map(d => ({ nombre: d.nombre, saldo: tarjetaSaldoActual(d.id) })).filter(d => d.saldo > 0);
   const extra = Number(state.extra) || 0;
   const timeline = [];
   let q = 0;
   const MAX_Q = 60;
   while (order.some(d => d.saldo > 0) && q < MAX_Q) {
     q++;
-    order.forEach(d => { if (d.saldo > 0) d.saldo = Math.max(0, d.saldo - d.aporteFijoQuincenal); });
     let remainingExtra = extra;
     for (const d of order) {
       if (remainingExtra <= 0) break;
@@ -705,8 +757,8 @@ function simulateSnowball() {
 
 function renderPlanScreen() {
   const el = document.getElementById('fz-plan-content');
-  const list = orderedDeudas().filter(d => (Number(d.saldo)||0) > 0);
-  const liberadas = orderedDeudas().filter(d => (Number(d.saldo)||0) <= 0);
+  const list = orderedDeudas().filter(d => tarjetaSaldoActual(d.id) > 0);
+  const liberadas = orderedDeudas().filter(d => tarjetaSaldoActual(d.id) <= 0);
 
   let html = `<div class="settings-row" onclick="promptExtra()">
     <div>
@@ -728,7 +780,7 @@ function renderPlanScreen() {
       <div class="fz-plan-badge">${i+1}</div>
       <div class="fz-plan-item-body">
         <div class="fz-plan-item-name">${d.nombre}</div>
-        <div class="fz-plan-item-meta">Saldo actual: ${money(d.saldo)} · Aporte fijo: ${money(d.aporteFijoQuincenal)}/quincena</div>
+        <div class="fz-plan-item-meta">Saldo actual: ${money(tarjetaSaldoActual(d.id))}</div>
       </div>
     </div>`;
   });
