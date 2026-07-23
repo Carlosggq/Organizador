@@ -490,16 +490,17 @@ function renderQuincenaScreen() {
   const isFirst = state.currentQIndex === 0;
   const isLast = state.currentQIndex === state.quincenas.length - 1;
   const gastos = q.gastos || [];
-  const totalPresupuestado = gastos.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
-  const totalGastado = gastos.reduce((s,g) => s + (Number(g.gastado)||0), 0);
-  /* T. Gastos / Me queda son en base de EFECTIVO REAL: lo cargado a tarjeta se paga después, no sale de este ingreso */
-  const totalGastadoEfectivo = gastos.filter(g => g.formaPago !== 'cargo').reduce((s,g) => s + (Number(g.gastado)||0), 0);
-  const meQueda = (Number(q.ingresos)||0) - totalGastadoEfectivo;
+  /* "Pago a tarjeta" no es gasto nuevo (ya se contó cuando se cargó) — no participa en nada de este resumen,
+     solo actualiza el saldo de la tarjeta en la pestaña Tarjetas. "Cargo a tarjeta" SÍ es el gasto real. */
+  const gastosQuincena = gastos.filter(g => g.formaPago !== 'pago');
+  const totalPresupuestado = gastosQuincena.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
+  const totalGastado = gastosQuincena.reduce((s,g) => s + (Number(g.gastado)||0), 0);
+  const meQueda = (Number(q.ingresos)||0) - totalGastado;
   const cargoCount = gastos.filter(g => g.formaPago === 'cargo' && g.pagado).length;
 
   const porTipo = {};
   ['Fijos','Variables','Ocio','Ahorro'].forEach(t => porTipo[t] = { presupuestado: 0, gastado: 0 });
-  gastos.forEach(g => { if (porTipo[g.tipo]) { porTipo[g.tipo].presupuestado += Number(g.presupuestado)||0; porTipo[g.tipo].gastado += Number(g.gastado)||0; } });
+  gastosQuincena.forEach(g => { if (porTipo[g.tipo]) { porTipo[g.tipo].presupuestado += Number(g.presupuestado)||0; porTipo[g.tipo].gastado += Number(g.gastado)||0; } });
   const donutBase = totalGastado > 0 ? 'gastado' : 'presupuestado';
   const donutTotal = Object.values(porTipo).reduce((s,t) => s + t[donutBase], 0) || 1;
 
@@ -532,7 +533,7 @@ function renderQuincenaScreen() {
   if (cargoCount > 0) {
     html += `<div class="fz-alert-banner" style="background:var(--bg3);border-color:var(--border2);color:var(--text2)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — no afectan tu "Me queda" (se pagan después), pero revisa el resumen de abajo para no rebasar tu buffer.</span>
+      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — ya cuentan como gasto real, y además suben el saldo de esa tarjeta. Revisa el resumen de abajo para no rebasar tu buffer.</span>
     </div>`;
   }
 
@@ -541,7 +542,7 @@ function renderQuincenaScreen() {
       <div class="fz-summary-row"><span class="fz-lbl">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(q.ahorros)}</span></div>
-      <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos (efectivo)</span><span class="fz-val">${money(totalGastadoEfectivo)}</span></div>
+      <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos</span><span class="fz-val">${money(totalGastado)}</span></div>
       <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val" style="${meQueda < 0 ? 'color:var(--red-light)' : ''}">${money(meQueda)}</span></div>
     </div>
     <div class="fz-donut-wrap">
