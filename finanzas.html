@@ -98,10 +98,15 @@
     </select>
     <input type="text" id="pi-concepto" placeholder="Concepto" maxlength="40">
     <input type="number" id="pi-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
-    <select id="pi-vincular">
-      <option value="">No vincular a ninguna tarjeta/deuda</option>
+    <select id="pi-formapago" onchange="updatePlantillaItemVisibility()">
+      <option value="efectivo">Efectivo / cuenta</option>
+      <option value="cargo">Cargo a tarjeta (sube el saldo)</option>
+      <option value="pago">Pago a tarjeta/deuda (baja el saldo)</option>
     </select>
-    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Si lo vinculas, cada vez que crees una quincena con esta plantilla, el concepto quedará listo como "Pago a tarjeta/deuda" — al marcarlo pagado, baja el saldo automáticamente.</p>
+    <select id="pi-vincular" style="display:none">
+      <option value="">Elige tarjeta/deuda</option>
+    </select>
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Se vincula por nombre: cada vez que crees una quincena con esta plantilla, el concepto queda listo con esta forma de pago — solo aplica cuando lo marques "pagado".</p>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closePlantillaItemModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmPlantillaItem()">Guardar</button>
@@ -300,7 +305,7 @@ const PLANTILLAS_DEFAULT = {
     { tipo: 'Fijos', concepto: 'Transporte', presupuestado: 400 },
     { tipo: 'Fijos', concepto: 'Telcel', presupuestado: 600 },
     { tipo: 'Variables', concepto: 'Corte cabello', presupuestado: 150 },
-    { tipo: 'Fijos', concepto: 'Santander', presupuestado: 2500, vincularDeuda: 'Santander' },
+    { tipo: 'Fijos', concepto: 'Santander', presupuestado: 2500, formaPago: 'pago', vincularDeuda: 'Santander' },
     { tipo: 'Ocio', concepto: 'Netflix', presupuestado: 269 },
     { tipo: 'Fijos', concepto: 'Semana 1', presupuestado: 800 },
     { tipo: 'Fijos', concepto: 'Claude IA', presupuestado: 400 },
@@ -487,7 +492,9 @@ function renderQuincenaScreen() {
   const gastos = q.gastos || [];
   const totalPresupuestado = gastos.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
   const totalGastado = gastos.reduce((s,g) => s + (Number(g.gastado)||0), 0);
-  const meQueda = (Number(q.ingresos)||0) - totalGastado;
+  /* T. Gastos / Me queda son en base de EFECTIVO REAL: lo cargado a tarjeta se paga después, no sale de este ingreso */
+  const totalGastadoEfectivo = gastos.filter(g => g.formaPago !== 'cargo').reduce((s,g) => s + (Number(g.gastado)||0), 0);
+  const meQueda = (Number(q.ingresos)||0) - totalGastadoEfectivo;
   const cargoCount = gastos.filter(g => g.formaPago === 'cargo' && g.pagado).length;
 
   const porTipo = {};
@@ -523,9 +530,9 @@ function renderQuincenaScreen() {
   }
 
   if (cargoCount > 0) {
-    html += `<div class="fz-alert-banner">
+    html += `<div class="fz-alert-banner" style="background:var(--bg3);border-color:var(--border2);color:var(--text2)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — es la señal de recaída al ciclo, revísalos.</span>
+      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — no afectan tu "Me queda" (se pagan después), pero revisa el resumen de abajo para no rebasar tu buffer.</span>
     </div>`;
   }
 
@@ -534,8 +541,8 @@ function renderQuincenaScreen() {
       <div class="fz-summary-row"><span class="fz-lbl">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(q.ahorros)}</span></div>
-      <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos</span><span class="fz-val">${money(totalGastado)}</span></div>
-      <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val">${money(meQueda)}</span></div>
+      <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos (efectivo)</span><span class="fz-val">${money(totalGastadoEfectivo)}</span></div>
+      <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val" style="${meQueda < 0 ? 'color:var(--red-light)' : ''}">${money(meQueda)}</span></div>
     </div>
     <div class="fz-donut-wrap">
       <div class="fz-donut" style="background:${donutBg}"></div>
@@ -544,6 +551,8 @@ function renderQuincenaScreen() {
       </div>
     </div>
   </div>`;
+
+  html += renderCargoEfectivoResumen();
 
   ['Fijos','Variables','Ocio','Ahorro'].forEach(tipo => {
     const items = gastos.filter(g => g.tipo === tipo);
@@ -624,6 +633,44 @@ function updateGastoTarjetaVisibility() {
   capFields.style.display = showCapital ? '' : 'none';
 }
 
+/* Empareja la quincena actual con su "otra mitad" del mes (del 15 + del 30) para ver el total del mes */
+function quincenasDelMes(index) {
+  const q = state.quincenas[index];
+  if (!q) return [q].filter(Boolean);
+  const tipoActual = detectarPlantilla(q.fechaInicio);
+  if (tipoActual === 'p30') {
+    const sig = state.quincenas[index + 1];
+    if (sig && detectarPlantilla(sig.fechaInicio) === 'p15') return [q, sig];
+  } else {
+    const ant = state.quincenas[index - 1];
+    if (ant && detectarPlantilla(ant.fechaInicio) === 'p30') return [ant, q];
+  }
+  return [q];
+}
+
+function renderCargoEfectivoResumen() {
+  const qs = quincenasDelMes(state.currentQIndex);
+  let cargo = 0, efectivo = 0;
+  qs.forEach(q => (q.gastos||[]).forEach(g => {
+    if (g.formaPago === 'cargo') cargo += Number(g.presupuestado)||0;
+    else efectivo += Number(g.presupuestado)||0;
+  }));
+  const metaDebt = state.metas.find(m => m.tipo === 'debt' && m.objetivoInicial > 0);
+  const cap = metaDebt ? Number(metaDebt.objetivoInicial) : null;
+  const total = cargo + efectivo;
+  const pctCargo = total > 0 ? (cargo / total * 100) : 0;
+  const excede = cap != null && cargo > cap;
+  return `<div class="fz-summary-card" style="display:block">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+      Destinado del mes (${qs.length === 2 ? '2 quincenas' : 'esta quincena'})
+    </div>
+    <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--coral-light)">A tarjeta</span><span class="fz-val" style="${excede ? 'color:var(--red-light)' : ''}">${money(cargo)}${cap != null ? ' / ' + money(cap) : ''}</span></div>
+    <div class="fz-summary-row" style="margin-top:4px"><span class="fz-lbl" style="color:var(--teal-light)">Efectivo / cuenta</span><span class="fz-val">${money(efectivo)}</span></div>
+    <div class="fz-deuda-bar-track" style="margin-top:8px"><div class="fz-deuda-bar-fill" style="width:${pctCargo}%;background:var(--coral)"></div></div>
+    ${excede ? `<p style="font-size:11px;color:var(--red-light);margin-top:8px">Vas ${money(cargo-cap)} arriba de tu buffer de tarjetas (${money(cap)}) — ojo con seguir cargando.</p>` : (cap != null ? `<p style="font-size:11px;color:var(--text3);margin-top:8px">Buffer disponible en tarjetas: ${money(cap)}.</p>` : '')}
+  </div>`;
+}
+
 function changeQuincena(dir) {
   const ni = state.currentQIndex + dir;
   if (ni < 0 || ni >= state.quincenas.length) return;
@@ -693,9 +740,10 @@ function confirmQuincena() {
       const key = fuente === 'p15' || fuente === 'p30' ? fuente : detectarPlantilla(fechaInicio);
       gastos = (state.plantillas[key] || []).map(g => {
         const base = { id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null, montoCapital: null, metaAhorroId: null };
-        if (g.vincularDeuda) {
+        const itemFormaPago = g.formaPago || (g.vincularDeuda ? 'pago' : 'efectivo');
+        if (g.vincularDeuda && (itemFormaPago === 'cargo' || itemFormaPago === 'pago')) {
           const d = state.deudas.find(x => x.nombre.toLowerCase() === g.vincularDeuda.toLowerCase());
-          if (d) { base.formaPago = 'pago'; base.tarjetaId = d.id; }
+          if (d) { base.formaPago = itemFormaPago; base.tarjetaId = d.id; }
         }
         return base;
       });
@@ -831,41 +879,54 @@ function renderPlantillaList() {
   const el = document.getElementById('plantilla-list');
   const items = state.plantillas[plantillaTab] || [];
   const total = items.reduce((s,i) => s + (Number(i.presupuestado)||0), 0);
+  const totalCargo = items.filter(i => i.formaPago === 'cargo').reduce((s,i) => s + (Number(i.presupuestado)||0), 0);
   if (!items.length) { el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:6px 2px">Sin conceptos en esta plantilla.</p>`; return; }
+  const badgeTxt = (i) => {
+    if (!i.formaPago || i.formaPago === 'efectivo') return '';
+    return (i.formaPago === 'cargo' ? ' · Cargo → ' : ' · Pago → ') + (i.vincularDeuda || '?');
+  };
   el.innerHTML = items.map(i => `<div class="fz-gasto-item">
       <div class="fz-gasto-body" onclick="openPlantillaItemModal('${i.id}')">
         <div class="fz-gasto-nombre">${i.concepto}</div>
-        <div class="fz-gasto-meta">${TIPO_LABEL[i.tipo]}${i.vincularDeuda ? ' · vinculado a ' + i.vincularDeuda : ''}</div>
+        <div class="fz-gasto-meta">${TIPO_LABEL[i.tipo]}${badgeTxt(i)}</div>
       </div>
       <div class="fz-gasto-amt" onclick="openPlantillaItemModal('${i.id}')"><div class="fz-gastado">${money(i.presupuestado)}</div></div>
       <div class="fz-gasto-del" onclick="deletePlantillaItem('${i.id}')">&times;</div>
-    </div>`).join('') + `<p style="text-align:right;font-size:11px;color:var(--text2);margin-top:6px">Total: ${money(total)}</p>`;
+    </div>`).join('') + `<p style="text-align:right;font-size:11px;color:var(--text2);margin-top:6px">Total: ${money(total)} · A tarjeta: ${money(totalCargo)}</p>`;
+}
+function updatePlantillaItemVisibility() {
+  const fp = document.getElementById('pi-formapago').value;
+  document.getElementById('pi-vincular').style.display = (fp === 'cargo' || fp === 'pago') ? '' : 'none';
 }
 function openPlantillaItemModal(id) {
   editingPlantillaItemId = id;
   document.getElementById('plantilla-item-modal-title').textContent = id ? 'Editar concepto' : 'Nuevo concepto';
   const selVincular = document.getElementById('pi-vincular');
-  selVincular.innerHTML = '<option value="">No vincular a ninguna tarjeta/deuda</option>' +
+  selVincular.innerHTML = '<option value="">Elige tarjeta/deuda</option>' +
     state.deudas.map(d => `<option value="${d.nombre}">${d.nombre}</option>`).join('');
   if (id) {
     const i = state.plantillas[plantillaTab].find(x => x.id === id);
     document.getElementById('pi-tipo').value = i.tipo;
     document.getElementById('pi-concepto').value = i.concepto;
     document.getElementById('pi-presupuestado').value = i.presupuestado;
+    document.getElementById('pi-formapago').value = i.formaPago || (i.vincularDeuda ? 'pago' : 'efectivo');
     selVincular.value = i.vincularDeuda || '';
   } else {
     document.getElementById('pi-tipo').value = 'Fijos';
     document.getElementById('pi-concepto').value = '';
     document.getElementById('pi-presupuestado').value = '';
+    document.getElementById('pi-formapago').value = 'efectivo';
     selVincular.value = '';
   }
+  updatePlantillaItemVisibility();
   document.getElementById('plantilla-item-modal-overlay').classList.add('open');
 }
 function closePlantillaItemModal() { document.getElementById('plantilla-item-modal-overlay').classList.remove('open'); }
 function confirmPlantillaItem() {
   const concepto = document.getElementById('pi-concepto').value.trim();
   if (!concepto) { alert('Escribe un concepto.'); return; }
-  const data = { tipo: document.getElementById('pi-tipo').value, concepto, presupuestado: parseFloat(document.getElementById('pi-presupuestado').value) || 0, vincularDeuda: document.getElementById('pi-vincular').value || null };
+  const formaPago = document.getElementById('pi-formapago').value;
+  const data = { tipo: document.getElementById('pi-tipo').value, concepto, presupuestado: parseFloat(document.getElementById('pi-presupuestado').value) || 0, formaPago, vincularDeuda: (formaPago === 'cargo' || formaPago === 'pago') ? (document.getElementById('pi-vincular').value || null) : null };
   if (!state.plantillas[plantillaTab]) state.plantillas[plantillaTab] = [];
   if (editingPlantillaItemId) {
     const i = state.plantillas[plantillaTab].find(x => x.id === editingPlantillaItemId);
