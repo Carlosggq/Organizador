@@ -653,6 +653,7 @@ function renderCargoEfectivoResumen() {
   const qs = quincenasDelMes(state.currentQIndex);
   let cargo = 0, efectivo = 0;
   qs.forEach(q => (q.gastos||[]).forEach(g => {
+    if (g.formaPago === 'pago') return; /* saldar tarjeta no es gasto del mes, no participa aquí */
     if (g.formaPago === 'cargo') cargo += Number(g.presupuestado)||0;
     else efectivo += Number(g.presupuestado)||0;
   }));
