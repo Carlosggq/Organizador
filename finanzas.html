@@ -647,15 +647,20 @@ function renderQuincenaScreen() {
   const donutBase = totalGastado > 0 ? 'gastado' : 'presupuestado';
   const donutTotal = Object.values(porTipo).reduce((s,t) => s + t[donutBase], 0) || 1;
 
+  const donutItems = ['Fijos','Variables','Ocio','Ahorro'].map(t => ({ t, val: porTipo[t][donutBase] })).filter(i => i.val > 0);
+  const donutSumRaw = donutItems.reduce((s,i) => s + i.val, 0) || 1;
+  const MIN_PCT = 8;
+  const withPct = donutItems.map(i => ({ ...i, pct: i.val / donutSumRaw * 100 }));
+  const deficit = withPct.reduce((s,i) => s + Math.max(0, MIN_PCT - i.pct), 0);
+  const normalTotal = withPct.filter(i => i.pct >= MIN_PCT).reduce((s,i) => s + i.pct, 0) || 1;
+  withPct.forEach(i => { i.finalPct = i.pct < MIN_PCT ? MIN_PCT : i.pct - deficit * (i.pct / normalTotal); });
+
   let acc = 0;
   const stops = [];
-  ['Fijos','Variables','Ocio','Ahorro'].forEach(t => {
-    const val = porTipo[t][donutBase];
-    if (val <= 0) return;
-    const pct = val / donutTotal * 100;
-    const metalColor = DEUDA_COLOR_STOPS[TIPO_METAL_KEY[t]][0];
-    stops.push(`${metalColor} ${acc}% ${acc+pct}%`);
-    acc += pct;
+  withPct.forEach(i => {
+    const metalColor = DEUDA_COLOR_STOPS[TIPO_METAL_KEY[i.t]][0];
+    stops.push(`${metalColor} ${acc}% ${acc + i.finalPct}%`);
+    acc += i.finalPct;
   });
   const donutBg = stops.length ? `conic-gradient(${stops.join(',')})` : `var(--bg4)`;
 
@@ -1241,10 +1246,10 @@ function orderedDeudas() {
 }
 
 const CATEGORIA_DEUDA = [
-  { key: 'tarjeta', label: 'Tarjetas' },
-  { key: 'deuda', label: 'Deudas' },
-  { key: 'automotriz', label: 'Automotriz' },
-  { key: 'hipotecario', label: 'Hipotecario' }
+  { key: 'tarjeta', label: 'Tarjetas', metal: 'blue' },
+  { key: 'deuda', label: 'Deudas', metal: 'purple' },
+  { key: 'automotriz', label: 'Automotriz', metal: 'orange' },
+  { key: 'hipotecario', label: 'Hipotecario', metal: 'teal' }
 ];
 
 function renderDeudaCard(d, i) {
@@ -1292,8 +1297,9 @@ function renderTarjetasScreen() {
   let html = '';
   CATEGORIA_DEUDA.forEach(cat => {
     const items = orderedDeudas().filter(d => (d.tipo || 'tarjeta') === cat.key);
-    html += `<div class="fz-tipo-hdr" style="margin-top:18px">
-      <span class="fz-tipo-name">${cat.label}</span>
+    const [c1, c2] = DEUDA_COLOR_STOPS[cat.metal];
+    html += `<div class="fz-tipo-hdr" style="margin-top:18px;padding:10px 12px;border-radius:10px;background:linear-gradient(90deg, ${c2}40, ${c2}00)">
+      <span class="fz-tipo-name"><span class="fz-tipo-dot" style="background:${c1}"></span>${cat.label}</span>
       <span class="fz-tipo-totals">${items.length} ${items.length === 1 ? 'apartado' : 'apartados'}</span>
     </div>`;
     if (!items.length) {
