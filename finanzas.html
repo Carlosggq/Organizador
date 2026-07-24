@@ -1180,7 +1180,7 @@ function renderTarjetasScreen() {
         ${proxPago ? `<div>Próx. pago: <b>${proxPago}</b></div>` : '<div></div>'}
         ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
       </div>
-      ${esPrestamo ? `<div style="background:var(--bg3);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:11px;color:var(--text2)">
+      ${esPrestamo ? `<div style="background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2)">
         Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
         Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b>
       </div>` : ''}
