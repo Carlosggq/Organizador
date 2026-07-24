@@ -588,6 +588,12 @@ function renderQuincenaScreen() {
 
   let html = '';
 
+  html += `<div class="fz-hero">
+    <div class="fz-hero-label">Me queda</div>
+    <div class="fz-hero-value" style="color:${meQueda < 0 ? 'var(--red-light)' : 'var(--teal-light)'}">${money(meQueda)}</div>
+    <div class="fz-hero-sub">hasta el ${fechaCorta(q.fechaFin)}</div>
+  </div>`;
+
   html += `<div class="fz-quincena-picker">
     <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
     <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
@@ -615,7 +621,6 @@ function renderQuincenaScreen() {
       <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(ahorrosCalculados)}</span></div>
       <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos</span><span class="fz-val">${money(totalGastado)}</span></div>
-      <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val" style="${meQueda < 0 ? 'color:var(--red-light)' : ''}">${money(meQueda)}</span></div>
     </div>
     <div class="fz-donut-wrap">
       <div class="fz-donut" style="background:${donutBg}"></div>

@@ -237,6 +237,10 @@
 .back-link:active { color:var(--text2); }
 
 /* FINANZAS */
+.fz-hero { margin-bottom:14px; }
+.fz-hero-label { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text3); font-weight:600; }
+.fz-hero-value { font-size:40px; font-weight:800; line-height:1.15; margin-top:3px; letter-spacing:-0.5px; }
+.fz-hero-sub { font-size:13px; color:var(--text2); margin-top:2px; }
 .fz-quincena-picker { display:flex; align-items:center; justify-content:space-between; background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:12px; }
 .fz-quincena-picker .fz-qp-label { font-size:13px; font-weight:500; }
 .fz-quincena-picker .fz-qp-sub { font-size:11px; color:var(--text2); margin-top:1px; }
