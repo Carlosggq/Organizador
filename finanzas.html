@@ -173,7 +173,12 @@
     </select>
     <input type="text" id="g-concepto" placeholder="Concepto (ej. Telcel, Renta...)" maxlength="40">
     <input type="number" id="g-presupuestado" placeholder="Presupuestado ($)" inputmode="decimal" step="0.01" min="0">
+    <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);margin:8px 2px;">
+      <span class="toggle"><input type="checkbox" id="g-acumulador" onchange="updateGastoAcumuladorVisibility()"><span class="toggle-slider"></span></span>
+      Es acumulador (voy sumando mini-gastos, ej. Semana 1/2)
+    </label>
     <input type="number" id="g-gastado" placeholder="Gastado ($)" inputmode="decimal" step="0.01" min="0">
+    <p id="g-acumulador-note" style="display:none;font-size:11px;color:var(--text3);margin:-4px 2px 8px">El gastado se calcula solo, sumando los mini-gastos que agregues desde la lista (ícono "+").</p>
     <select id="g-formapago" onchange="updateGastoTarjetaVisibility()">
       <option value="efectivo">Efectivo / cuenta</option>
       <option value="cargo">Cargo a tarjeta (sube el saldo de esa tarjeta)</option>
@@ -196,6 +201,20 @@
   </div>
 </div>
 
+<!-- MINI-GASTOS MODAL (para conceptos acumuladores) -->
+<div class="modal-overlay" id="mini-modal-overlay">
+  <div class="modal">
+    <h3 id="mini-modal-title">Mini-gastos</h3>
+    <div id="mini-list" style="max-height:40vh;overflow-y:auto;margin-bottom:10px"></div>
+    <input type="text" id="mini-nombre" placeholder="Ej. Tacos, Súper, Uber..." maxlength="30">
+    <input type="number" id="mini-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
+    <button class="fz-add-gasto-btn" onclick="addMiniConcepto()">+ Agregar mini-gasto</button>
+    <div class="modal-btns">
+      <button class="btn btn-confirm" onclick="closeMiniModal()" style="grid-column:1/-1">Listo</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEUDA MODAL -->
 <div class="modal-overlay" id="deuda-modal-overlay">
   <div class="modal">
@@ -211,6 +230,13 @@
     <input type="number" id="d-corte" placeholder="Día de corte (1-31) — opcional" inputmode="numeric" min="1" max="31">
     <input type="number" id="d-diapago" placeholder="Día límite de pago (1-31) — opcional" inputmode="numeric" min="1" max="31">
     <input type="number" id="d-interes" placeholder="Tasa de interés (%) — opcional" inputmode="decimal" step="0.01" min="0">
+    <select id="d-color">
+      <option value="red">Rojo (default)</option>
+      <option value="blue">Azul metálico</option>
+      <option value="orange">Naranja metálico</option>
+      <option value="teal">Verde/teal</option>
+      <option value="purple">Morado</option>
+    </select>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeDeudaModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmDeuda()">Guardar</button>
@@ -245,6 +271,13 @@ function fechaCorta(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); 
 
 const TIPO_LABEL = { Fijos: 'G. Fijos', Variables: 'G. Variables', Ocio: 'Ocio', Ahorro: 'Ahorro' };
 const TIPO_COLOR_VAR = { Fijos: '--teal', Variables: '--blue', Ocio: '--amber', Ahorro: '--purple' };
+const DEUDA_COLOR_GRADIENT = {
+  red: 'linear-gradient(135deg, #ff8a75, #c0392b)',
+  blue: 'linear-gradient(135deg, #6ec6ff, #0047ab)',
+  orange: 'linear-gradient(135deg, #ffbe6e, #e8650a)',
+  teal: 'linear-gradient(135deg, #6ee7c7, #0f9d78)',
+  purple: 'linear-gradient(135deg, #c9a8ff, #6a3fc9)'
+};
 const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 function proximaFechaDia(diaMes) {
@@ -566,14 +599,16 @@ function renderQuincenaScreen() {
       html += `<p style="font-size:11px;color:var(--text3);padding:2px 2px 6px">Sin conceptos todavía.</p>`;
     } else {
       items.forEach(g => {
+        const miniCount = (g.miniConceptos||[]).length;
         html += `<div class="fz-gasto-item ${g.pagado?'done':''}">
           <div class="fz-gasto-check ${g.pagado?'done':''}" onclick="toggleGastoPagado('${g.id}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
           <div class="fz-gasto-body" onclick="openGastoModal('${g.id}')">
-            <div class="fz-gasto-nombre">${g.concepto}${gastoTarjetaBadge(g)}</div>
+            <div class="fz-gasto-nombre">${g.concepto}${gastoTarjetaBadge(g)}${g.acumulador ? `<span class="fz-gasto-tc" style="background:var(--bg4);color:var(--text2)">${miniCount} mini-gasto${miniCount===1?'':'s'}</span>` : ''}</div>
             <div class="fz-gasto-meta">Presup. ${money(g.presupuestado)}</div>
           </div>
+          ${g.acumulador ? `<div class="fz-gasto-add-mini" onclick="openMiniModal('${g.id}')" title="Agregar mini-gasto">+</div>` : ''}
           <div class="fz-gasto-amt" onclick="openGastoModal('${g.id}')">
             <div class="fz-gastado">${money(g.gastado)}</div>
           </div>
@@ -781,6 +816,7 @@ function openGastoModal(id) {
     document.getElementById('g-tipo').value = g.tipo;
     document.getElementById('g-concepto').value = g.concepto;
     document.getElementById('g-presupuestado').value = g.presupuestado;
+    document.getElementById('g-acumulador').checked = !!g.acumulador;
     document.getElementById('g-gastado').value = g.gastado;
     document.getElementById('g-formapago').value = g.formaPago || 'efectivo';
     if (g.tarjetaId) document.getElementById('g-tarjetaid').value = g.tarjetaId;
@@ -791,15 +827,22 @@ function openGastoModal(id) {
     document.getElementById('g-tipo').value = 'Fijos';
     document.getElementById('g-concepto').value = '';
     document.getElementById('g-presupuestado').value = '';
+    document.getElementById('g-acumulador').checked = false;
     document.getElementById('g-gastado').value = '';
     document.getElementById('g-formapago').value = 'efectivo';
     document.getElementById('g-capital').value = '';
     document.getElementById('g-pagado').checked = false;
   }
+  updateGastoAcumuladorVisibility();
   updateGastoTarjetaVisibility();
   document.getElementById('gasto-modal-overlay').classList.add('open');
 }
 function closeGastoModal() { document.getElementById('gasto-modal-overlay').classList.remove('open'); }
+function updateGastoAcumuladorVisibility() {
+  const on = document.getElementById('g-acumulador').checked;
+  document.getElementById('g-gastado').style.display = on ? 'none' : '';
+  document.getElementById('g-acumulador-note').style.display = on ? '' : 'none';
+}
 
 function confirmGasto() {
   const q = currentQuincena();
@@ -812,11 +855,16 @@ function confirmGasto() {
   }
   const capitalVisible = document.getElementById('g-capital-fields').style.display !== 'none';
   const capitalRaw = document.getElementById('g-capital').value;
+  const acumulador = document.getElementById('g-acumulador').checked;
+  const existing = editingGastoId ? q.gastos.find(x => x.id === editingGastoId) : null;
+  const miniConceptos = existing && existing.miniConceptos ? existing.miniConceptos : [];
   const data = {
     tipo: document.getElementById('g-tipo').value,
     concepto,
     presupuestado: parseFloat(document.getElementById('g-presupuestado').value) || 0,
-    gastado: parseFloat(document.getElementById('g-gastado').value) || 0,
+    acumulador,
+    miniConceptos,
+    gastado: acumulador ? miniConceptos.reduce((s,m) => s + (Number(m.monto)||0), 0) : (parseFloat(document.getElementById('g-gastado').value) || 0),
     formaPago,
     tarjetaId: (formaPago === 'cargo' || formaPago === 'pago') ? document.getElementById('g-tarjetaid').value : null,
     montoCapital: (capitalVisible && capitalRaw !== '') ? parseFloat(capitalRaw) : null,
@@ -851,6 +899,67 @@ function deleteGasto(gid) {
   q.gastos = q.gastos.filter(x => x.id !== gid);
   saveQuincena(q);
   renderAll();
+}
+
+/* ---------- MINI-GASTOS (para conceptos acumuladores como Semana 1/2) ---------- */
+let currentMiniGastoId = null;
+
+function recalcGastoDesdeMinis(g) {
+  g.gastado = (g.miniConceptos||[]).reduce((s,m) => s + (Number(m.monto)||0), 0);
+}
+
+function openMiniModal(gid) {
+  currentMiniGastoId = gid;
+  const q = currentQuincena();
+  const g = q.gastos.find(x => x.id === gid);
+  document.getElementById('mini-modal-title').textContent = 'Mini-gastos — ' + g.concepto;
+  document.getElementById('mini-nombre').value = '';
+  document.getElementById('mini-monto').value = '';
+  renderMiniList();
+  document.getElementById('mini-modal-overlay').classList.add('open');
+}
+function closeMiniModal() {
+  document.getElementById('mini-modal-overlay').classList.remove('open');
+  renderAll();
+}
+function renderMiniList() {
+  const q = currentQuincena();
+  const g = q.gastos.find(x => x.id === currentMiniGastoId);
+  const el = document.getElementById('mini-list');
+  const items = g.miniConceptos || [];
+  if (!items.length) {
+    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin mini-gastos todavía.</p>`;
+  } else {
+    el.innerHTML = items.map(m => `<div class="fz-gasto-item">
+        <div class="fz-gasto-body"><div class="fz-gasto-nombre">${m.nombre}</div></div>
+        <div class="fz-gasto-amt"><div class="fz-gastado">${money(m.monto)}</div></div>
+        <div class="fz-gasto-del" onclick="deleteMiniConcepto('${m.id}')">&times;</div>
+      </div>`).join('');
+  }
+  const total = items.reduce((s,m) => s + (Number(m.monto)||0), 0);
+  el.innerHTML += `<p style="text-align:right;font-size:12px;color:var(--teal-light);margin-top:6px;font-weight:600">Total: ${money(total)} / Presup. ${money(g.presupuestado)}</p>`;
+}
+function addMiniConcepto() {
+  const nombre = document.getElementById('mini-nombre').value.trim();
+  const monto = parseFloat(document.getElementById('mini-monto').value) || 0;
+  if (!nombre) { alert('Escribe un nombre para el mini-gasto.'); return; }
+  const q = currentQuincena();
+  const g = q.gastos.find(x => x.id === currentMiniGastoId);
+  if (!g.miniConceptos) g.miniConceptos = [];
+  g.miniConceptos.push({ id: uid(), nombre, monto });
+  recalcGastoDesdeMinis(g);
+  saveQuincena(q);
+  document.getElementById('mini-nombre').value = '';
+  document.getElementById('mini-monto').value = '';
+  renderMiniList();
+}
+function deleteMiniConcepto(mid) {
+  const q = currentQuincena();
+  const g = q.gastos.find(x => x.id === currentMiniGastoId);
+  g.miniConceptos = (g.miniConceptos||[]).filter(m => m.id !== mid);
+  recalcGastoDesdeMinis(g);
+  saveQuincena(q);
+  renderMiniList();
 }
 
 /* ---------- PLANTILLAS ---------- */
@@ -965,7 +1074,9 @@ function renderTarjetasScreen() {
   el.innerHTML = list.map((d, i) => {
     const saldo = tarjetaSaldoActual(d.id);
     const limite = Number(d.limite) || 0;
+    const disponible = limite > 0 ? Math.max(0, limite - saldo) : null;
     const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
+    const barGradient = DEUDA_COLOR_GRADIENT[d.color] || DEUDA_COLOR_GRADIENT.red;
     const proxCorte = formatFechaCorta(proximaFechaDia(d.corte));
     const proxPago = formatFechaCorta(proximaFechaDia(d.diaPago));
     const esPrestamo = d.tipo === 'deuda';
@@ -975,9 +1086,10 @@ function renderTarjetasScreen() {
         <div class="fz-deuda-nombre"><span class="fz-deuda-order">${i+1}</span>${d.nombre}</div>
         <div class="fz-deuda-saldo">${saldo <= 0 ? '¡Libre! 🎉' : money(saldo)}</div>
       </div>
-      ${limite > 0 ? `<div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%"></div></div>` : ''}
+      ${limite > 0 ? `<div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%;background:${barGradient}"></div></div>` : ''}
       <div class="fz-deuda-meta-grid">
         ${limite > 0 ? `<div>Límite: <b>${money(limite)}</b></div>` : '<div></div>'}
+        ${disponible != null ? `<div>Disponible: <b style="color:var(--teal-light)">${money(disponible)}</b></div>` : '<div></div>'}
         ${proxCorte ? `<div>Próx. corte: <b>${proxCorte}</b></div>` : '<div></div>'}
         ${proxPago ? `<div>Próx. pago: <b>${proxPago}</b></div>` : '<div></div>'}
         ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
@@ -1006,6 +1118,7 @@ function openDeudaModal(id) {
     document.getElementById('d-corte').value = d.corte || '';
     document.getElementById('d-diapago').value = d.diaPago || '';
     document.getElementById('d-interes').value = d.tasaInteres || '';
+    document.getElementById('d-color').value = d.color || 'red';
   } else {
     document.getElementById('d-nombre').value = '';
     document.getElementById('d-tipo').value = 'tarjeta';
@@ -1014,6 +1127,7 @@ function openDeudaModal(id) {
     document.getElementById('d-corte').value = '';
     document.getElementById('d-diapago').value = '';
     document.getElementById('d-interes').value = '';
+    document.getElementById('d-color').value = 'red';
   }
   document.getElementById('deuda-modal-overlay').classList.add('open');
 }
@@ -1029,7 +1143,8 @@ function confirmDeuda() {
     limite: parseFloat(document.getElementById('d-limite').value) || 0,
     corte: parseInt(document.getElementById('d-corte').value) || null,
     diaPago: parseInt(document.getElementById('d-diapago').value) || null,
-    tasaInteres: parseFloat(document.getElementById('d-interes').value) || 0
+    tasaInteres: parseFloat(document.getElementById('d-interes').value) || 0,
+    color: document.getElementById('d-color').value
   };
   if (editingDeudaId) {
     const d = state.deudas.find(x => x.id === editingDeudaId);
