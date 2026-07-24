@@ -653,7 +653,8 @@ function renderQuincenaScreen() {
     const val = porTipo[t][donutBase];
     if (val <= 0) return;
     const pct = val / donutTotal * 100;
-    stops.push(`var(${TIPO_COLOR_VAR[t]}) ${acc}% ${acc+pct}%`);
+    const metalColor = DEUDA_COLOR_STOPS[TIPO_METAL_KEY[t]][0];
+    stops.push(`${metalColor} ${acc}% ${acc+pct}%`);
     acc += pct;
   });
   const donutBg = stops.length ? `conic-gradient(${stops.join(',')})` : `var(--bg4)`;
@@ -702,7 +703,7 @@ function renderQuincenaScreen() {
     <div class="fz-donut-wrap">
       <div class="fz-donut" style="background:${donutBg}"></div>
       <div class="fz-donut-legend">
-        ${['Fijos','Variables','Ocio','Ahorro'].map(t => `<div class="fz-legend-item"><span class="fz-legend-dot" style="background:var(${TIPO_COLOR_VAR[t]})"></span>${TIPO_LABEL[t]}</div>`).join('')}
+        ${['Fijos','Variables','Ocio','Ahorro'].map(t => `<div class="fz-legend-item"><span class="fz-legend-dot" style="background:${DEUDA_COLOR_STOPS[TIPO_METAL_KEY[t]][0]}"></span>${TIPO_LABEL[t]}</div>`).join('')}
       </div>
     </div>
   </div>`;
