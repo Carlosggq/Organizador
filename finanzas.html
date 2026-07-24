@@ -236,6 +236,28 @@
   </div>
 </div>
 
+<!-- TABLA DE AMORTIZACIÓN MODAL -->
+<div class="modal-overlay" id="amort-modal-overlay">
+  <div class="modal">
+    <h3 id="amort-modal-title">Tabla de amortización</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Cada fila es un pago programado. "Registrar pago programado" va tomando las filas en orden y las reparte en capital, interés y extras automáticamente.</p>
+    <div id="amort-list" style="max-height:35vh;overflow-y:auto;margin-bottom:10px"></div>
+    <div id="amort-plantilla-row" style="display:none;margin-bottom:10px">
+      <button class="fz-add-gasto-btn" onclick="cargarPlantillaMarch2020()">Usar plantilla de Compra March 2020 (22 pagos)</button>
+    </div>
+    <input type="date" id="am-fecha">
+    <input type="number" id="am-capital" placeholder="Capital ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="am-interes" placeholder="Interés ($)" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="am-gps" placeholder="GPS / extra recurrente ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="am-iva" placeholder="IVA ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    <input type="number" id="am-comision" placeholder="Comisión ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    <button class="fz-add-gasto-btn" onclick="addAmortRow()">+ Agregar pago programado</button>
+    <div class="modal-btns">
+      <button class="btn btn-confirm" onclick="closeAmortModal()" style="grid-column:1/-1">Listo</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEUDA EXTRA MODAL (gastos extra ligados a una deuda, ej. coche) -->
 <div class="modal-overlay" id="deuda-extra-modal-overlay">
   <div class="modal">
@@ -1255,6 +1277,7 @@ function renderDeudaCard(d, i) {
         <span>Gastos extra <span style="color:var(--text3)">(comisión, tapetes...)</span></span>
         <b style="color:var(--text)">${money((d.gastosExtra||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
       </div>
+      ${esPrestamo ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="openAmortModal('${d.id}')">Configurar tabla de amortización</button>` : ''}
       ${(() => { const prox = proximoPagoProgramado(d); return prox ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="registrarPagoProgramado('${d.id}')">Registrar pago programado (${formatFechaCorta(new Date(prox.fecha+'T00:00:00'))}) — ${money(prox.capital+prox.interes+prox.gps+prox.iva+prox.comision)}</button>` : ''; })()}
       <div class="fz-deuda-actions">
         <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
@@ -1476,6 +1499,84 @@ function registrarPagoProgramado(deudaId) {
   d.amortizacionUsadas.push(row.fecha);
   saveDeuda(d);
   renderAll();
+}
+
+let currentAmortDeudaId = null;
+function openAmortModal(id) {
+  currentAmortDeudaId = id;
+  const d = state.deudas.find(x => x.id === id);
+  document.getElementById('amort-modal-title').textContent = 'Tabla de amortización — ' + d.nombre;
+  document.getElementById('am-fecha').value = '';
+  document.getElementById('am-capital').value = '';
+  document.getElementById('am-interes').value = '';
+  document.getElementById('am-gps').value = '';
+  document.getElementById('am-iva').value = '';
+  document.getElementById('am-comision').value = '';
+  document.getElementById('amort-plantilla-row').style.display = (!d.tablaAmortizacion || !d.tablaAmortizacion.length) ? '' : 'none';
+  renderAmortList();
+  document.getElementById('amort-modal-overlay').classList.add('open');
+}
+function closeAmortModal() {
+  document.getElementById('amort-modal-overlay').classList.remove('open');
+  renderAll();
+}
+function renderAmortList() {
+  const d = state.deudas.find(x => x.id === currentAmortDeudaId);
+  const el = document.getElementById('amort-list');
+  const rows = d.tablaAmortizacion || [];
+  const usadas = d.amortizacionUsadas || [];
+  if (!rows.length) {
+    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin filas todavía.</p>`;
+  } else {
+    el.innerHTML = rows.map(r => {
+      const total = r.capital + r.interes + (r.gps||0) + (r.iva||0) + (r.comision||0);
+      const usado = usadas.includes(r.fecha);
+      return `<div class="fz-gasto-item"><div class="fz-gasto-toprow">
+        <div class="fz-gasto-body"><div class="fz-gasto-nombre">${formatFechaCorta(new Date(r.fecha+'T00:00:00'))}${usado ? ' <span class="fz-gasto-tc" style="background:var(--teal2);color:var(--teal-light)">Ya registrado</span>' : ''}</div>
+          <div class="fz-gasto-meta">Cap. ${money(r.capital)} · Int. ${money(r.interes)}${r.gps?' · GPS '+money(r.gps):''}${r.iva?' · IVA '+money(r.iva):''}</div></div>
+        <div class="fz-gasto-amt">${money(total)}</div>
+        <div class="fz-gasto-del" onclick="deleteAmortRow('${r.id}')">&times;</div>
+      </div></div>`;
+    }).join('');
+  }
+}
+function addAmortRow() {
+  const fecha = document.getElementById('am-fecha').value;
+  const capital = parseFloat(document.getElementById('am-capital').value) || 0;
+  const interes = parseFloat(document.getElementById('am-interes').value) || 0;
+  if (!fecha) { alert('Elige una fecha.'); return; }
+  if (capital <= 0 && interes <= 0) { alert('Captura al menos capital o interés.'); return; }
+  const d = state.deudas.find(x => x.id === currentAmortDeudaId);
+  if (!d.tablaAmortizacion) d.tablaAmortizacion = [];
+  d.tablaAmortizacion.push({
+    id: uid(), fecha, capital, interes,
+    gps: parseFloat(document.getElementById('am-gps').value) || 0,
+    iva: parseFloat(document.getElementById('am-iva').value) || 0,
+    comision: parseFloat(document.getElementById('am-comision').value) || 0
+  });
+  d.tablaAmortizacion.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  saveDeuda(d);
+  document.getElementById('am-fecha').value = '';
+  document.getElementById('am-capital').value = '';
+  document.getElementById('am-interes').value = '';
+  document.getElementById('am-gps').value = '';
+  document.getElementById('am-iva').value = '';
+  document.getElementById('am-comision').value = '';
+  document.getElementById('amort-plantilla-row').style.display = 'none';
+  renderAmortList();
+}
+function deleteAmortRow(rid) {
+  const d = state.deudas.find(x => x.id === currentAmortDeudaId);
+  d.tablaAmortizacion = (d.tablaAmortizacion||[]).filter(r => r.id !== rid);
+  saveDeuda(d);
+  renderAmortList();
+}
+function cargarPlantillaMarch2020() {
+  const d = state.deudas.find(x => x.id === currentAmortDeudaId);
+  d.tablaAmortizacion = AMORT_SCHEDULE_MARCH2020.map(r => ({ id: uid(), ...r }));
+  saveDeuda(d);
+  document.getElementById('amort-plantilla-row').style.display = 'none';
+  renderAmortList();
 }
 
 /* ---------- METAS DE AHORRO ---------- */
