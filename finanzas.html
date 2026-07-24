@@ -356,7 +356,7 @@ let state = {
     { nombre: 'Ahorro de emergencia', tipo: 'ahorro', meta: 50000, donde: '' },
     { nombre: 'Vacaciones', tipo: 'ahorro', meta: 0, donde: '' }
   ]),
-  currentQIndex: load('fz_currentQIndex', 0),
+  currentQuincenaId: load('fz_currentQuincenaId', null),
   currentScreen: 'fz-quincena'
 };
 let plantillaTab = 'p15';
@@ -417,7 +417,10 @@ function attachFzListeners() {
     .onSnapshot(snap => {
       state.quincenas = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.fechaInicio||'').localeCompare(b.fechaInicio||''));
       save('fz_quincenas', state.quincenas);
-      if (state.currentQIndex >= state.quincenas.length) state.currentQIndex = Math.max(0, state.quincenas.length - 1);
+      if (!state.quincenas.some(q => q.id === state.currentQuincenaId)) {
+        state.currentQuincenaId = state.quincenas.length ? state.quincenas[state.quincenas.length - 1].id : null;
+        save('fz_currentQuincenaId', state.currentQuincenaId);
+      }
       renderAll();
       updateFzSyncChip(true);
     }, err => { console.error(err); updateFzSyncChip(false); });
@@ -508,7 +511,12 @@ function renderNav() {
 }
 
 /* ---------- QUINCENA SCREEN ---------- */
-function currentQuincena() { return state.quincenas[state.currentQIndex] || null; }
+function currentQuincenaIndex() { return state.quincenas.findIndex(q => q.id === state.currentQuincenaId); }
+function currentQuincena() {
+  const idx = currentQuincenaIndex();
+  if (idx >= 0) return state.quincenas[idx];
+  return state.quincenas.length ? state.quincenas[state.quincenas.length - 1] : null;
+}
 
 function renderQuincenaScreen() {
   const el = document.getElementById('fz-quincena-content');
@@ -520,8 +528,9 @@ function renderQuincenaScreen() {
     return;
   }
 
-  const isFirst = state.currentQIndex === 0;
-  const isLast = state.currentQIndex === state.quincenas.length - 1;
+  const curIdx = currentQuincenaIndex();
+  const isFirst = curIdx === 0;
+  const isLast = curIdx === state.quincenas.length - 1;
   const gastos = q.gastos || [];
   /* "Pago a tarjeta" no es gasto nuevo (ya se contó cuando se cargó) — no participa en nada de este resumen,
      solo actualiza el saldo de la tarjeta en la pestaña Tarjetas. "Cargo a tarjeta" SÍ es el gasto real. */
@@ -685,7 +694,7 @@ function quincenasDelMes(index) {
 }
 
 function renderCargoEfectivoResumen() {
-  const qs = quincenasDelMes(state.currentQIndex);
+  const qs = quincenasDelMes(currentQuincenaIndex());
   let cargo = 0, efectivo = 0;
   qs.forEach(q => (q.gastos||[]).forEach(g => {
     if (g.formaPago === 'pago') return; /* saldar tarjeta no es gasto del mes, no participa aquí */
@@ -709,10 +718,11 @@ function renderCargoEfectivoResumen() {
 }
 
 function changeQuincena(dir) {
-  const ni = state.currentQIndex + dir;
+  const curIdx = currentQuincenaIndex();
+  const ni = curIdx + dir;
   if (ni < 0 || ni >= state.quincenas.length) return;
-  state.currentQIndex = ni;
-  save('fz_currentQIndex', ni);
+  state.currentQuincenaId = state.quincenas[ni].id;
+  save('fz_currentQuincenaId', state.currentQuincenaId);
   renderQuincenaScreen();
 }
 
@@ -787,8 +797,8 @@ function confirmQuincena() {
     }
     const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ahorros, gastos };
     state.quincenas.push(q);
-    state.currentQIndex = state.quincenas.length - 1;
-    save('fz_currentQIndex', state.currentQIndex);
+    state.currentQuincenaId = q.id;
+    save('fz_currentQuincenaId', state.currentQuincenaId);
     saveQuincena(q);
   }
   closeQuincenaModal();
