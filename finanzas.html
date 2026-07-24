@@ -704,7 +704,7 @@ function renderQuincenaScreen() {
 
   html += `<div class="fz-summary-card">
     <div class="fz-summary-left">
-      <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
+      <div class="fz-summary-row" onclick="openQuincenaModal('${q.id}')" style="cursor:pointer"><span class="fz-lbl" style="color:var(--text);text-decoration:underline">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
       <div class="fz-summary-row" onclick="openIngresoExtraModal()" style="cursor:pointer"><span class="fz-lbl" style="color:var(--text);text-decoration:underline">Ingreso extra ${extraTotal>0?'':'(+)'}</span><span class="fz-val" style="color:var(--teal-light)">${money(extraTotal)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Mis ahorros</span><span class="fz-val">${money(ahorrosCalculados)}</span></div>
