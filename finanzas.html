@@ -589,9 +589,15 @@ function renderQuincenaScreen() {
   let html = '';
 
   html += `<div class="fz-hero">
-    <div class="fz-hero-label">Me queda</div>
-    <div class="fz-hero-value" style="color:${meQueda < 0 ? 'var(--red-light)' : 'var(--teal-light)'}">${money(meQueda)}</div>
-    <div class="fz-hero-sub">hasta el ${fechaCorta(q.fechaFin)}</div>
+    <div class="fz-hero-label">DISPONIBLE PARA GASTAR</div>
+    <div class="fz-hero-row">
+      <div class="fz-hero-value" style="color:${meQueda < 0 ? 'var(--red-light)' : 'var(--teal-light)'}">${money(meQueda)}</div>
+      <div class="fz-hero-sub">hasta el ${fechaCorta(q.fechaFin)}</div>
+    </div>
+    <div class="fz-hero-secondary">
+      <div class="fz-hero-label">TOTAL GASTADO</div>
+      <div class="fz-hero-value">${money(totalGastado)}</div>
+    </div>
   </div>`;
 
   html += `<div class="fz-quincena-picker">
