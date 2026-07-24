@@ -46,7 +46,6 @@
     </div>
     <div class="scroll-content">
       <div id="fz-tarjetas-content"></div>
-      <button class="fz-add-gasto-btn" onclick="openDeudaModal(null)">+ Agregar tarjeta o deuda</button>
     </div>
     <nav class="nav-bar" id="fz-nav2"></nav>
   </div>
@@ -259,7 +258,9 @@
     <input type="text" id="d-nombre" placeholder="Nombre (ej. Banamex, Klar...)" maxlength="30">
     <select id="d-tipo" onchange="updateDeudaTipoVisibility()">
       <option value="tarjeta">Tarjeta de crédito propia</option>
-      <option value="deuda">Deuda / préstamo</option>
+      <option value="deuda">Deuda</option>
+      <option value="automotriz">Automotriz</option>
+      <option value="hipotecario">Hipotecario</option>
     </select>
     <input type="number" id="d-saldoinicial" placeholder="Saldo inicial ($)" inputmode="decimal" step="0.01" min="0">
     <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Es tu punto de partida (checkpoint). A partir de aquí, el saldo real sube con cada "Cargo a tarjeta" y baja con cada "Pago a tarjeta" que registres en Quincena — no necesitas volver a capturarlo a mano.</p>
@@ -1216,24 +1217,24 @@ function orderedDeudas() {
   });
 }
 
-function renderTarjetasScreen() {
-  const el = document.getElementById('fz-tarjetas-content');
-  const list = orderedDeudas();
-  if (!list.length) {
-    el.innerHTML = `<div class="empty-state" style="margin-top:40px"><p>Todavía no agregas ninguna tarjeta o deuda.</p></div>`;
-    return;
-  }
-  el.innerHTML = list.map((d, i) => {
-    const saldo = tarjetaSaldoActual(d.id);
-    const limite = Number(d.limite) || 0;
-    const disponible = limite > 0 ? Math.max(0, limite - saldo) : null;
-    const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
-    const barGradient = DEUDA_COLOR_GRADIENT[d.color] || DEUDA_COLOR_GRADIENT.red;
-    const proxCorte = formatFechaCorta(proximaFechaDia(d.corte));
-    const proxPago = formatFechaCorta(proximaFechaDia(d.diaPago));
-    const esPrestamo = d.tipo === 'deuda';
-    const ac = esPrestamo ? deudaAcumulado(d.id) : null;
-    return `<div class="fz-deuda-card">
+const CATEGORIA_DEUDA = [
+  { key: 'tarjeta', label: 'Tarjetas' },
+  { key: 'deuda', label: 'Deudas' },
+  { key: 'automotriz', label: 'Automotriz' },
+  { key: 'hipotecario', label: 'Hipotecario' }
+];
+
+function renderDeudaCard(d, i) {
+  const saldo = tarjetaSaldoActual(d.id);
+  const limite = Number(d.limite) || 0;
+  const disponible = limite > 0 ? Math.max(0, limite - saldo) : null;
+  const pct = limite > 0 ? Math.min(100, saldo / limite * 100) : (saldo > 0 ? 100 : 0);
+  const barGradient = DEUDA_COLOR_GRADIENT[d.color] || DEUDA_COLOR_GRADIENT.red;
+  const proxCorte = formatFechaCorta(proximaFechaDia(d.corte));
+  const proxPago = formatFechaCorta(proximaFechaDia(d.diaPago));
+  const esPrestamo = d.tipo !== 'tarjeta';
+  const ac = esPrestamo ? deudaAcumulado(d.id) : null;
+  return `<div class="fz-deuda-card">
       <div class="fz-deuda-top">
         <div class="fz-deuda-nombre"><span class="fz-deuda-order">${i+1}</span>${d.nombre}</div>
         <div class="fz-deuda-saldo">${saldo <= 0 ? '¡Libre! 🎉' : money(saldo)}</div>
@@ -1260,10 +1261,28 @@ function renderTarjetasScreen() {
         <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteDeuda('${d.id}')">Eliminar</button>
       </div>
     </div>`;
-  }).join('');
 }
 
-function openDeudaModal(id) {
+function renderTarjetasScreen() {
+  const el = document.getElementById('fz-tarjetas-content');
+  let html = '';
+  CATEGORIA_DEUDA.forEach(cat => {
+    const items = orderedDeudas().filter(d => (d.tipo || 'tarjeta') === cat.key);
+    html += `<div class="fz-tipo-hdr" style="margin-top:18px">
+      <span class="fz-tipo-name">${cat.label}</span>
+      <span class="fz-tipo-totals">${items.length} ${items.length === 1 ? 'apartado' : 'apartados'}</span>
+    </div>`;
+    if (!items.length) {
+      html += `<p style="font-size:11px;color:var(--text3);padding:2px 2px 6px">Sin ${cat.label.toLowerCase()} todavía.</p>`;
+    } else {
+      items.forEach((d, i) => { html += renderDeudaCard(d, i); });
+    }
+    html += `<button class="fz-add-gasto-btn" onclick="openDeudaModal(null,'${cat.key}')">+ Agregar a ${cat.label}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function openDeudaModal(id, presetTipo) {
   editingDeudaId = id;
   document.getElementById('deuda-modal-title').textContent = id ? 'Editar tarjeta / deuda' : 'Nueva tarjeta / deuda';
   if (id) {
@@ -1280,7 +1299,7 @@ function openDeudaModal(id) {
     document.getElementById('d-color').value = d.color || 'red';
   } else {
     document.getElementById('d-nombre').value = '';
-    document.getElementById('d-tipo').value = 'tarjeta';
+    document.getElementById('d-tipo').value = presetTipo || 'tarjeta';
     document.getElementById('d-saldoinicial').value = '';
     document.getElementById('d-acumcapital').value = '';
     document.getElementById('d-acuminteres').value = '';
@@ -1296,7 +1315,7 @@ function openDeudaModal(id) {
 function closeDeudaModal() { document.getElementById('deuda-modal-overlay').classList.remove('open'); }
 function updateDeudaTipoVisibility() {
   const tipo = document.getElementById('d-tipo').value;
-  document.getElementById('d-deuda-acum-fields').style.display = tipo === 'deuda' ? '' : 'none';
+  document.getElementById('d-deuda-acum-fields').style.display = tipo !== 'tarjeta' ? '' : 'none';
 }
 
 function confirmDeuda() {
