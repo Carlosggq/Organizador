@@ -131,6 +131,13 @@
       <div id="m-deudas-checks" style="margin-bottom:10px"></div>
     </div>
     <input type="text" id="m-donde" placeholder="¿Dónde está guardado? (ej. Nu, Cuenta Didi)" maxlength="40">
+    <select id="m-color">
+      <option value="teal">Verde metálico</option>
+      <option value="blue">Azul metálico</option>
+      <option value="orange">Naranja metálico</option>
+      <option value="red">Rojo</option>
+      <option value="purple">Morado</option>
+    </select>
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeMetaModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmMeta()">Guardar</button>
@@ -1294,11 +1301,13 @@ function openMetaModal(id) {
     document.getElementById('m-tipo').value = m.tipo;
     document.getElementById('m-meta').value = m.meta || '';
     document.getElementById('m-donde').value = m.donde || '';
+    document.getElementById('m-color').value = m.color || 'teal';
   } else {
     document.getElementById('m-nombre').value = '';
     document.getElementById('m-tipo').value = 'ahorro';
     document.getElementById('m-meta').value = '';
     document.getElementById('m-donde').value = '';
+    document.getElementById('m-color').value = 'teal';
   }
   updateMetaTipoVisibility();
   document.getElementById('meta-modal-overlay').classList.add('open');
@@ -1314,7 +1323,8 @@ function confirmMeta() {
   if (!nombre) { alert('Escribe un nombre.'); return; }
   const tipo = document.getElementById('m-tipo').value;
   const donde = document.getElementById('m-donde').value.trim();
-  let data = { nombre, tipo, donde };
+  const color = document.getElementById('m-color').value;
+  let data = { nombre, tipo, donde, color };
   if (tipo === 'ahorro') {
     data.meta = parseFloat(document.getElementById('m-meta').value) || 0;
   } else {
@@ -1369,7 +1379,7 @@ function renderPlanScreen() {
         <div class="fz-deuda-nombre">${m.nombre}</div>
         <div class="fz-deuda-saldo" style="color:var(--teal-light)">${money(actual)}${meta > 0 ? ' / ' + money(meta) : ''}</div>
       </div>
-      <div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%;background:var(--teal)"></div></div>
+      <div class="fz-deuda-bar-track"><div class="fz-deuda-bar-fill" style="width:${pct}%;background:${DEUDA_COLOR_GRADIENT[m.color] || DEUDA_COLOR_GRADIENT.teal}"></div></div>
       <div class="fz-deuda-meta-grid">
         <div style="grid-column:1/-1">${subtitulo}</div>
         ${m.donde ? `<div style="grid-column:1/-1">Guardado en: <b>${m.donde}</b></div>` : ''}
