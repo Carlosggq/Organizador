@@ -658,11 +658,13 @@ function renderQuincenaScreen() {
   let acc = 0;
   const stops = [];
   withPct.forEach(i => {
-    const metalColor = DEUDA_COLOR_STOPS[TIPO_METAL_KEY[i.t]][0];
+    const metalColor = DEUDA_COLOR_STOPS[TIPO_METAL_KEY[i.t]][1];
     stops.push(`${metalColor} ${acc}% ${acc + i.finalPct}%`);
     acc += i.finalPct;
   });
-  const donutBg = stops.length ? `conic-gradient(${stops.join(',')})` : `var(--bg4)`;
+  const donutBg = stops.length
+    ? `radial-gradient(circle at 32% 24%, rgba(255,255,255,0.45), transparent 55%), conic-gradient(${stops.join(',')})`
+    : `var(--bg4)`;
 
   let html = '';
 
@@ -698,17 +700,19 @@ function renderQuincenaScreen() {
     </div>`;
   }
 
+  html += `<h1 style="margin:18px 0 10px">Resumen</h1>`;
+
   html += `<div class="fz-summary-card">
     <div class="fz-summary-left">
-      <div class="fz-summary-row"><span class="fz-lbl">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
-      <div class="fz-summary-row" onclick="openIngresoExtraModal()" style="cursor:pointer"><span class="fz-lbl" style="text-decoration:underline">Ingreso extra ${extraTotal>0?'':'(+)'}</span><span class="fz-val" style="color:var(--teal-light)">${money(extraTotal)}</span></div>
-      <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
-      <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(ahorrosCalculados)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
+      <div class="fz-summary-row" onclick="openIngresoExtraModal()" style="cursor:pointer"><span class="fz-lbl" style="color:var(--text);text-decoration:underline">Ingreso extra ${extraTotal>0?'':'(+)'}</span><span class="fz-val" style="color:var(--teal-light)">${money(extraTotal)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--text)">Mis ahorros</span><span class="fz-val">${money(ahorrosCalculados)}</span></div>
     </div>
     <div class="fz-donut-wrap">
       <div class="fz-donut" style="background:${donutBg}"></div>
       <div class="fz-donut-legend">
-        ${['Fijos','Variables','Ocio','Ahorro'].map(t => `<div class="fz-legend-item"><span class="fz-legend-dot" style="background:${DEUDA_COLOR_STOPS[TIPO_METAL_KEY[t]][0]}"></span>${TIPO_LABEL[t]}</div>`).join('')}
+        ${['Fijos','Variables','Ocio','Ahorro'].map(t => `<div class="fz-legend-item"><span class="fz-legend-dot" style="background:${DEUDA_COLOR_STOPS[TIPO_METAL_KEY[t]][1]}"></span>${TIPO_LABEL[t]}</div>`).join('')}
       </div>
     </div>
   </div>`;
@@ -1247,7 +1251,7 @@ function orderedDeudas() {
 
 const CATEGORIA_DEUDA = [
   { key: 'tarjeta', label: 'Tarjetas', metal: 'blue' },
-  { key: 'deuda', label: 'Deudas', metal: 'purple' },
+  { key: 'deuda', label: 'Deudas', metal: 'red' },
   { key: 'automotriz', label: 'Automotriz', metal: 'orange' },
   { key: 'hipotecario', label: 'Hipotecario', metal: 'teal' }
 ];
