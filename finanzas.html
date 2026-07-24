@@ -138,6 +138,21 @@
   </div>
 </div>
 
+<!-- INGRESO EXTRA MODAL -->
+<div class="modal-overlay" id="ingreso-extra-modal-overlay">
+  <div class="modal">
+    <h3>Ingresos extra de esta quincena</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Bonos, pagos que te debían, etc. — se suman a tu ingreso fijo sin modificarlo.</p>
+    <div id="ingreso-extra-list" style="max-height:35vh;overflow-y:auto;margin-bottom:10px"></div>
+    <input type="text" id="ie-nombre" placeholder="Ej. Bono, Pago pendiente..." maxlength="30">
+    <input type="number" id="ie-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
+    <button class="fz-add-gasto-btn" onclick="addIngresoExtra()">+ Agregar ingreso extra</button>
+    <div class="modal-btns">
+      <button class="btn btn-confirm" onclick="closeIngresoExtraModal()" style="grid-column:1/-1">Listo</button>
+    </div>
+  </div>
+</div>
+
 <!-- QUINCENA HEADER MODAL (nueva / editar) -->
 <div class="modal-overlay" id="quincena-modal-overlay">
   <div class="modal">
@@ -146,7 +161,7 @@
     <input type="date" id="q-inicio">
     <input type="date" id="q-fin">
     <input type="number" id="q-ingresos" placeholder="Ingresos ($)" inputmode="decimal" step="0.01" min="0">
-    <input type="number" id="q-ahorros" placeholder="Mis ahorros ($)" inputmode="decimal" step="0.01" min="0">
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 8px">"Mis ahorros" ya no se captura aquí — se calcula solo sumando los conceptos que marques tipo "Ahorro" en la quincena.</p>
     <select id="q-fuente" style="margin:8px 0 10px">
       <option value="auto">Detectar plantilla automático (según fecha)</option>
       <option value="p15">Usar plantilla "Del 15"</option>
@@ -518,6 +533,10 @@ function currentQuincena() {
   return state.quincenas.length ? state.quincenas[state.quincenas.length - 1] : null;
 }
 
+function ingresoExtraTotal(q) {
+  return (q.ingresosExtra || []).reduce((s,i) => s + (Number(i.monto)||0), 0);
+}
+
 function renderQuincenaScreen() {
   const el = document.getElementById('fz-quincena-content');
   const q = currentQuincena();
@@ -537,8 +556,11 @@ function renderQuincenaScreen() {
   const gastosQuincena = gastos.filter(g => g.formaPago !== 'pago');
   const totalPresupuestado = gastosQuincena.reduce((s,g) => s + (Number(g.presupuestado)||0), 0);
   const totalGastado = gastosQuincena.reduce((s,g) => s + (Number(g.gastado)||0), 0);
-  const meQueda = (Number(q.ingresos)||0) - totalGastado;
+  const meQueda = (Number(q.ingresos)||0) + ingresoExtraTotal(q) - totalGastado;
   const cargoCount = gastos.filter(g => g.formaPago === 'cargo' && g.pagado).length;
+  /* "Mis ahorros" ya no es manual: es la suma de lo que llevas en conceptos tipo Ahorro esta quincena */
+  const ahorrosCalculados = gastosQuincena.filter(g => g.tipo === 'Ahorro').reduce((s,g) => s + (Number(g.gastado)||0), 0);
+  const extraTotal = ingresoExtraTotal(q);
 
   const porTipo = {};
   ['Fijos','Variables','Ocio','Ahorro'].forEach(t => porTipo[t] = { presupuestado: 0, gastado: 0 });
@@ -582,8 +604,9 @@ function renderQuincenaScreen() {
   html += `<div class="fz-summary-card">
     <div class="fz-summary-left">
       <div class="fz-summary-row"><span class="fz-lbl">Ingresos</span><span class="fz-val">${money(q.ingresos)}</span></div>
+      <div class="fz-summary-row" onclick="openIngresoExtraModal()" style="cursor:pointer"><span class="fz-lbl" style="text-decoration:underline">Ingreso extra ${extraTotal>0?'':'(+)'}</span><span class="fz-val" style="color:var(--teal-light)">${money(extraTotal)}</span></div>
       <div class="fz-summary-row"><span class="fz-lbl">Presupuesto</span><span class="fz-val">${money(totalPresupuestado)}</span></div>
-      <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(q.ahorros)}</span></div>
+      <div class="fz-summary-row"><span class="fz-lbl">Mis ahorros</span><span class="fz-val">${money(ahorrosCalculados)}</span></div>
       <div class="fz-summary-row fz-total"><span class="fz-lbl">T. Gastos</span><span class="fz-val">${money(totalGastado)}</span></div>
       <div class="fz-summary-row fz-resta"><span class="fz-lbl">Me queda</span><span class="fz-val" style="${meQueda < 0 ? 'color:var(--red-light)' : ''}">${money(meQueda)}</span></div>
     </div>
@@ -749,7 +772,6 @@ function openQuincenaModal(id) {
     document.getElementById('q-inicio').value = inicio;
     document.getElementById('q-fin').value = fin;
     document.getElementById('q-ingresos').value = last ? last.ingresos : '';
-    document.getElementById('q-ahorros').value = last ? last.ahorros : 0;
     document.getElementById('q-fuente').value = 'auto';
   } else {
     const q = state.quincenas.find(x => x.id === id);
@@ -757,7 +779,6 @@ function openQuincenaModal(id) {
     document.getElementById('q-inicio').value = q.fechaInicio || '';
     document.getElementById('q-fin').value = q.fechaFin || '';
     document.getElementById('q-ingresos').value = q.ingresos || '';
-    document.getElementById('q-ahorros').value = q.ahorros || '';
   }
   document.getElementById('quincena-modal-overlay').classList.add('open');
 }
@@ -769,11 +790,10 @@ function confirmQuincena() {
   const fechaInicio = document.getElementById('q-inicio').value;
   const fechaFin = document.getElementById('q-fin').value;
   const ingresos = parseFloat(document.getElementById('q-ingresos').value) || 0;
-  const ahorros = parseFloat(document.getElementById('q-ahorros').value) || 0;
 
   if (editId) {
     const q = state.quincenas.find(x => x.id === editId);
-    Object.assign(q, { label, fechaInicio, fechaFin, ingresos, ahorros });
+    Object.assign(q, { label, fechaInicio, fechaFin, ingresos });
     saveQuincena(q);
   } else {
     const fuente = document.getElementById('q-fuente').value;
@@ -795,7 +815,7 @@ function confirmQuincena() {
         return base;
       });
     }
-    const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ahorros, gastos };
+    const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ingresosExtra: [], gastos };
     state.quincenas.push(q);
     state.currentQuincenaId = q.id;
     save('fz_currentQuincenaId', state.currentQuincenaId);
@@ -970,6 +990,55 @@ function deleteMiniConcepto(mid) {
   recalcGastoDesdeMinis(g);
   saveQuincena(q);
   renderMiniList();
+}
+
+/* ---------- INGRESO EXTRA ---------- */
+function openIngresoExtraModal() {
+  document.getElementById('ie-nombre').value = '';
+  document.getElementById('ie-monto').value = '';
+  renderIngresoExtraList();
+  document.getElementById('ingreso-extra-modal-overlay').classList.add('open');
+}
+function closeIngresoExtraModal() {
+  document.getElementById('ingreso-extra-modal-overlay').classList.remove('open');
+  renderAll();
+}
+function renderIngresoExtraList() {
+  const q = currentQuincena();
+  if (!q) return;
+  const el = document.getElementById('ingreso-extra-list');
+  const items = q.ingresosExtra || [];
+  if (!items.length) {
+    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin ingresos extra todavía.</p>`;
+  } else {
+    el.innerHTML = items.map(i => `<div class="fz-gasto-item">
+        <div class="fz-gasto-body"><div class="fz-gasto-nombre">${i.nombre}</div></div>
+        <div class="fz-gasto-amt"><div class="fz-gastado" style="color:var(--teal-light)">${money(i.monto)}</div></div>
+        <div class="fz-gasto-del" onclick="deleteIngresoExtra('${i.id}')">&times;</div>
+      </div>`).join('');
+  }
+  const total = ingresoExtraTotal(q);
+  el.innerHTML += `<p style="text-align:right;font-size:12px;color:var(--teal-light);margin-top:6px;font-weight:600">Total extra: ${money(total)}</p>`;
+}
+function addIngresoExtra() {
+  const nombre = document.getElementById('ie-nombre').value.trim();
+  const monto = parseFloat(document.getElementById('ie-monto').value) || 0;
+  if (!nombre) { alert('Escribe un nombre para el ingreso extra.'); return; }
+  const q = currentQuincena();
+  if (!q) return;
+  if (!q.ingresosExtra) q.ingresosExtra = [];
+  q.ingresosExtra.push({ id: uid(), nombre, monto });
+  saveQuincena(q);
+  document.getElementById('ie-nombre').value = '';
+  document.getElementById('ie-monto').value = '';
+  renderIngresoExtraList();
+}
+function deleteIngresoExtra(iid) {
+  const q = currentQuincena();
+  if (!q) return;
+  q.ingresosExtra = (q.ingresosExtra||[]).filter(i => i.id !== iid);
+  saveQuincena(q);
+  renderIngresoExtraList();
 }
 
 /* ---------- PLANTILLAS ---------- */
