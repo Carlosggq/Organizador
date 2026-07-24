@@ -242,12 +242,17 @@
   <div class="modal">
     <h3 id="deuda-modal-title">Tarjeta / deuda</h3>
     <input type="text" id="d-nombre" placeholder="Nombre (ej. Banamex, Klar...)" maxlength="30">
-    <select id="d-tipo">
+    <select id="d-tipo" onchange="updateDeudaTipoVisibility()">
       <option value="tarjeta">Tarjeta de crédito propia</option>
       <option value="deuda">Deuda / préstamo</option>
     </select>
     <input type="number" id="d-saldoinicial" placeholder="Saldo inicial ($)" inputmode="decimal" step="0.01" min="0">
     <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Es tu punto de partida (checkpoint). A partir de aquí, el saldo real sube con cada "Cargo a tarjeta" y baja con cada "Pago a tarjeta" que registres en Quincena — no necesitas volver a capturarlo a mano.</p>
+    <div id="d-deuda-acum-fields">
+      <input type="number" id="d-acumcapital" placeholder="Ya pagado a capital antes de la app ($)" inputmode="decimal" step="0.01" min="0">
+      <input type="number" id="d-acuminteres" placeholder="Ya pagado a interés antes de la app ($)" inputmode="decimal" step="0.01" min="0">
+      <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Punto de partida de "Pagado acumulado" — lo que ya abonaste antes de usar la app. De aquí en adelante se va sumando solo con cada "Pago a deuda" que marques pagado.</p>
+    </div>
     <input type="number" id="d-limite" placeholder="Límite de crédito ($) — opcional" inputmode="decimal" step="0.01" min="0">
     <input type="number" id="d-corte" placeholder="Día de corte (1-31) — opcional" inputmode="numeric" min="1" max="31">
     <input type="number" id="d-diapago" placeholder="Día límite de pago (1-31) — opcional" inputmode="numeric" min="1" max="31">
@@ -354,17 +359,18 @@ function tarjetaSaldoActual(tarjetaId) {
 
 /* Para deudas tipo "préstamo" (ej. Santander): histórico de lo realmente pagado, separando capital e interés */
 function deudaAcumulado(tarjetaId) {
-  let capital = 0, interes = 0, total = 0;
+  const d = state.deudas.find(x => x.id === tarjetaId);
+  let capital = Number(d && d.acumCapitalInicial) || 0;
+  let interes = Number(d && d.acumInteresInicial) || 0;
   state.quincenas.forEach(q => (q.gastos||[]).forEach(g => {
     if (g.tarjetaId === tarjetaId && g.pagado && g.formaPago === 'pago') {
       const gastado = Number(g.gastado)||0;
       const cap = (g.montoCapital != null && g.montoCapital !== '') ? Number(g.montoCapital) : gastado;
       capital += cap;
       interes += Math.max(0, gastado - cap);
-      total += gastado;
     }
   }));
-  return { capital, interes, total };
+  return { capital, interes, total: capital + interes };
 }
 
 const PLANTILLAS_DEFAULT = {
@@ -1237,6 +1243,8 @@ function openDeudaModal(id) {
     document.getElementById('d-nombre').value = d.nombre;
     document.getElementById('d-tipo').value = d.tipo || 'tarjeta';
     document.getElementById('d-saldoinicial').value = d.saldoInicial != null ? d.saldoInicial : (d.saldo || '');
+    document.getElementById('d-acumcapital').value = d.acumCapitalInicial || '';
+    document.getElementById('d-acuminteres').value = d.acumInteresInicial || '';
     document.getElementById('d-limite').value = d.limite || '';
     document.getElementById('d-corte').value = d.corte || '';
     document.getElementById('d-diapago').value = d.diaPago || '';
@@ -1246,15 +1254,22 @@ function openDeudaModal(id) {
     document.getElementById('d-nombre').value = '';
     document.getElementById('d-tipo').value = 'tarjeta';
     document.getElementById('d-saldoinicial').value = '';
+    document.getElementById('d-acumcapital').value = '';
+    document.getElementById('d-acuminteres').value = '';
     document.getElementById('d-limite').value = '';
     document.getElementById('d-corte').value = '';
     document.getElementById('d-diapago').value = '';
     document.getElementById('d-interes').value = '';
     document.getElementById('d-color').value = 'red';
   }
+  updateDeudaTipoVisibility();
   document.getElementById('deuda-modal-overlay').classList.add('open');
 }
 function closeDeudaModal() { document.getElementById('deuda-modal-overlay').classList.remove('open'); }
+function updateDeudaTipoVisibility() {
+  const tipo = document.getElementById('d-tipo').value;
+  document.getElementById('d-deuda-acum-fields').style.display = tipo === 'deuda' ? '' : 'none';
+}
 
 function confirmDeuda() {
   const nombre = document.getElementById('d-nombre').value.trim();
@@ -1263,6 +1278,8 @@ function confirmDeuda() {
     nombre,
     tipo: document.getElementById('d-tipo').value,
     saldoInicial: parseFloat(document.getElementById('d-saldoinicial').value) || 0,
+    acumCapitalInicial: parseFloat(document.getElementById('d-acumcapital').value) || 0,
+    acumInteresInicial: parseFloat(document.getElementById('d-acuminteres').value) || 0,
     limite: parseFloat(document.getElementById('d-limite').value) || 0,
     corte: parseInt(document.getElementById('d-corte').value) || null,
     diaPago: parseInt(document.getElementById('d-diapago').value) || null,
