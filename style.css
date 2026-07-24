@@ -276,22 +276,26 @@
 .fz-tipo-dot { width:8px; height:8px; border-radius:50%; }
 .fz-tipo-totals { font-size:11px; color:var(--text2); }
 
-.fz-gasto-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:11px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+.fz-gasto-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:11px 12px; margin-bottom:6px; }
+.fz-gasto-toprow { display:flex; align-items:center; gap:10px; }
 .fz-gasto-check { width:20px; height:20px; border-radius:50%; border:1.5px solid var(--border2); flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; }
 .fz-gasto-check.done { background:var(--teal); border-color:var(--teal); }
 .fz-gasto-check svg { opacity:0; transition:opacity .15s; width:12px; height:12px; }
 .fz-gasto-check.done svg { opacity:1; }
+.fz-gasto-icon { width:32px; height:32px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.fz-gasto-icon svg { width:16px; height:16px; }
 .fz-gasto-body { flex:1; min-width:0; }
 .fz-gasto-nombre { font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .fz-gasto-item.done .fz-gasto-nombre { color:var(--text3); text-decoration:line-through; }
 .fz-gasto-meta { font-size:11px; color:var(--text2); margin-top:2px; }
 .fz-gasto-tc { font-size:9px; background:var(--coral); color:var(--coral-light); padding:1px 6px; border-radius:8px; font-weight:500; }
-.fz-gasto-amt { text-align:right; flex-shrink:0; }
-.fz-gasto-amt .fz-presup { font-size:11px; color:var(--text3); }
-.fz-gasto-amt .fz-gastado { font-size:13.5px; font-weight:600; }
+.fz-gasto-amt { text-align:right; flex-shrink:0; font-size:13px; font-weight:600; }
+.fz-gasto-amt .fz-presup { font-size:12px; color:var(--text3); font-weight:400; }
 .fz-gasto-del { color:var(--text3); font-size:17px; line-height:1; padding-left:2px; cursor:pointer; flex-shrink:0; }
 .fz-gasto-add-mini { width:22px; height:22px; border-radius:50%; background:var(--bg4); color:var(--text2); font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
 .fz-gasto-add-mini:active { background:var(--teal2); color:var(--teal-light); }
+.fz-gasto-track { height:5px; background:var(--bg4); border-radius:3px; overflow:hidden; margin-top:9px; }
+.fz-gasto-fill { height:100%; border-radius:3px; transition:width .3s ease; }
 
 .fz-add-gasto-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; border:1px dashed var(--border2); border-radius:12px; background:transparent; color:var(--text3); font-size:13px; cursor:pointer; width:100%; margin-top:8px; }
 .fz-add-gasto-btn:active { color:var(--text2); border-color:var(--teal); }
