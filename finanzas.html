@@ -237,6 +237,21 @@
   </div>
 </div>
 
+<!-- DEUDA EXTRA MODAL (gastos extra ligados a una deuda, ej. coche) -->
+<div class="modal-overlay" id="deuda-extra-modal-overlay">
+  <div class="modal">
+    <h3 id="deuda-extra-modal-title">Gastos extra</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px">No baja el saldo del préstamo — es un acumulado aparte para ver cuánto llevas gastado en total (GPS, comisión, tapetes, verificación...).</p>
+    <div id="deuda-extra-list" style="max-height:40vh;overflow-y:auto;margin-bottom:10px"></div>
+    <input type="text" id="de-nombre" placeholder="Ej. GPS, Comisión, Tapetes..." maxlength="30">
+    <input type="number" id="de-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
+    <button class="fz-add-gasto-btn" onclick="addDeudaExtra()">+ Agregar gasto extra</button>
+    <div class="modal-btns">
+      <button class="btn btn-confirm" onclick="closeDeudaExtraModal()" style="grid-column:1/-1">Listo</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEUDA MODAL -->
 <div class="modal-overlay" id="deuda-modal-overlay">
   <div class="modal">
@@ -372,6 +387,11 @@ function deudaAcumulado(tarjetaId) {
     }
   }));
   return { capital, interes, total: capital + interes };
+}
+
+function deudaGastosExtraTotal(tarjetaId) {
+  const d = state.deudas.find(x => x.id === tarjetaId);
+  return ((d && d.gastosExtra) || []).reduce((s,g) => s + (Number(g.monto)||0), 0);
 }
 
 const PLANTILLAS_DEFAULT = {
@@ -1229,6 +1249,10 @@ function renderTarjetasScreen() {
         Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
         Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b>
       </div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}')">
+        <span>Gastos extra <span style="color:var(--text3)">(GPS, comisión, tapetes...)</span></span>
+        <b style="color:var(--text)">${money(deudaGastosExtraTotal(d.id))} &rsaquo;</b>
+      </div>
       <div class="fz-deuda-actions">
         <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
         <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteDeuda('${d.id}')">Eliminar</button>
@@ -1315,6 +1339,56 @@ function deleteDeuda(id) {
   save('fz_deudas', state.deudas);
   if (db && fzCode) db.collection('households').doc(fzCode).collection('fz_deudas').doc(id).delete().catch(err => console.error(err));
   renderAll();
+}
+
+/* ---------- GASTOS EXTRA POR DEUDA (ej. coche: GPS, comisión, tapetes...) ---------- */
+let currentDeudaExtraId = null;
+function openDeudaExtraModal(id) {
+  currentDeudaExtraId = id;
+  const d = state.deudas.find(x => x.id === id);
+  document.getElementById('deuda-extra-modal-title').textContent = 'Gastos extra — ' + d.nombre;
+  document.getElementById('de-nombre').value = '';
+  document.getElementById('de-monto').value = '';
+  renderDeudaExtraList();
+  document.getElementById('deuda-extra-modal-overlay').classList.add('open');
+}
+function closeDeudaExtraModal() {
+  document.getElementById('deuda-extra-modal-overlay').classList.remove('open');
+  renderAll();
+}
+function renderDeudaExtraList() {
+  const d = state.deudas.find(x => x.id === currentDeudaExtraId);
+  const el = document.getElementById('deuda-extra-list');
+  const items = d.gastosExtra || [];
+  if (!items.length) {
+    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin gastos extra todavía.</p>`;
+  } else {
+    el.innerHTML = items.map(g => `<div class="fz-gasto-item"><div class="fz-gasto-toprow">
+        <div class="fz-gasto-body"><div class="fz-gasto-nombre">${g.nombre}</div></div>
+        <div class="fz-gasto-amt">${money(g.monto)}</div>
+        <div class="fz-gasto-del" onclick="deleteDeudaExtra('${g.id}')">&times;</div>
+      </div></div>`).join('');
+  }
+  const total = deudaGastosExtraTotal(currentDeudaExtraId);
+  el.innerHTML += `<p style="text-align:right;font-size:12px;color:var(--teal-light);margin-top:6px;font-weight:600">Total: ${money(total)}</p>`;
+}
+function addDeudaExtra() {
+  const nombre = document.getElementById('de-nombre').value.trim();
+  const monto = parseFloat(document.getElementById('de-monto').value) || 0;
+  if (!nombre) { alert('Escribe un nombre para el gasto extra.'); return; }
+  const d = state.deudas.find(x => x.id === currentDeudaExtraId);
+  if (!d.gastosExtra) d.gastosExtra = [];
+  d.gastosExtra.push({ id: uid(), nombre, monto });
+  saveDeuda(d);
+  document.getElementById('de-nombre').value = '';
+  document.getElementById('de-monto').value = '';
+  renderDeudaExtraList();
+}
+function deleteDeudaExtra(gid) {
+  const d = state.deudas.find(x => x.id === currentDeudaExtraId);
+  d.gastosExtra = (d.gastosExtra||[]).filter(g => g.id !== gid);
+  saveDeuda(d);
+  renderDeudaExtraList();
 }
 
 /* ---------- METAS DE AHORRO ---------- */
