@@ -386,7 +386,8 @@ function deudaAcumulado(tarjetaId) {
       interes += Math.max(0, gastado - cap);
     }
   }));
-  return { capital, interes, total: capital + interes };
+  const extras = ((d && d.gastosMensualidad) || []).reduce((s,g) => s + (Number(g.monto)||0), 0);
+  return { capital, interes, extras, total: capital + interes + extras };
 }
 
 function deudaGastosExtraTotal(tarjetaId) {
@@ -1245,17 +1246,13 @@ function renderTarjetasScreen() {
         ${proxPago ? `<div>Próx. pago: <b>${proxPago}</b></div>` : '<div></div>'}
         ${d.tasaInteres ? `<div>Interés: <b>${d.tasaInteres}%</b></div>` : '<div></div>'}
       </div>
-      ${esPrestamo ? `<div style="background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2)">
+      ${esPrestamo ? `<div style="background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosMensualidad')">
         Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
-        Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b>
+        Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b> · Extras: <b style="color:var(--amber-light)">${money(ac.extras)} &rsaquo;</b>
       </div>` : ''}
       <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosExtra')">
         <span>Gastos extra <span style="color:var(--text3)">(comisión, tapetes...)</span></span>
         <b style="color:var(--text)">${money((d.gastosExtra||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosMensualidad')">
-        <span>Dentro de mensualidad <span style="color:var(--text3)">(GPS, IVA...)</span></span>
-        <b style="color:var(--text)">${money((d.gastosMensualidad||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
       </div>
       ${(() => { const prox = proximoPagoProgramado(d); return prox ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="registrarPagoProgramado('${d.id}')">Registrar pago programado (${formatFechaCorta(new Date(prox.fecha+'T00:00:00'))}) — ${money(prox.capital+prox.interes+prox.gps+prox.iva+prox.comision)}</button>` : ''; })()}
       <div class="fz-deuda-actions">
