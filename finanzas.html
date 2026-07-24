@@ -298,6 +298,7 @@ function fechaCorta(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); 
 
 const TIPO_LABEL = { Fijos: 'G. Fijos', Variables: 'G. Variables', Ocio: 'Ocio', Ahorro: 'Ahorro' };
 const TIPO_COLOR_VAR = { Fijos: '--teal', Variables: '--blue', Ocio: '--amber', Ahorro: '--purple' };
+const TIPO_METAL_KEY = { Fijos: 'teal', Variables: 'blue', Ocio: 'orange', Ahorro: 'purple' };
 const TIPO_ICON_PATH = {
   Fijos: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
   Variables: '<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M8 8V6a4 4 0 018 0v2"/>',
@@ -618,7 +619,7 @@ function renderQuincenaScreen() {
   html += `<div class="fz-hero">
     <div class="fz-hero-label">DISPONIBLE PARA GASTAR</div>
     <div class="fz-hero-row">
-      <div class="fz-hero-value" style="color:${meQueda < 0 ? 'var(--red-light)' : 'var(--teal-light)'}">${money(meQueda)}</div>
+      <div class="fz-hero-value ${meQueda < 0 ? 'fz-hero-metal-red' : 'fz-hero-metal-teal'}">${money(meQueda)}</div>
       <div class="fz-hero-sub">hasta el ${fechaCorta(q.fechaFin)}</div>
     </div>
     <div class="fz-hero-secondary">
@@ -678,7 +679,8 @@ function renderQuincenaScreen() {
         const miniCount = (g.miniConceptos||[]).length;
         const gastado = Number(g.gastado)||0;
         const presup = Number(g.presupuestado)||0;
-        const pctBar = presup > 0 ? Math.min(100, gastado / presup * 100) : (gastado > 0 ? 100 : 0);
+        let pctBar = presup > 0 ? Math.min(100, gastado / presup * 100) : (gastado > 0 ? 100 : 0);
+        if (gastado >= presup - 0.01 && presup > 0) pctBar = 100;
         const subtitulo = g.acumulador ? `${miniCount} mini-gasto${miniCount===1?'':'s'}` : TIPO_LABEL[g.tipo];
         html += `<div class="fz-gasto-item ${g.pagado?'done':''}">
           <div class="fz-gasto-toprow">
@@ -694,7 +696,7 @@ function renderQuincenaScreen() {
             <div class="fz-gasto-amt" onclick="openGastoModal('${g.id}')">${money(gastado)} <span class="fz-presup">/ ${money(presup)}</span></div>
             <div class="fz-gasto-del" onclick="deleteGasto('${g.id}')">&times;</div>
           </div>
-          <div class="fz-gasto-track"><div class="fz-gasto-fill" style="width:${pctBar}%;background:var(${TIPO_COLOR_VAR[g.tipo]}-light)"></div></div>
+          <div class="fz-gasto-track"><div class="fz-gasto-fill" style="width:${pctBar}%;background:${DEUDA_COLOR_GRADIENT[TIPO_METAL_KEY[g.tipo]] || DEUDA_COLOR_GRADIENT.teal}"></div></div>
         </div>`;
       });
     }

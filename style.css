@@ -238,6 +238,8 @@
 
 /* FINANZAS */
 .fz-hero { margin-bottom:14px; }
+.fz-hero-metal-teal { background:linear-gradient(135deg, #6ee7c7, #0f9d78); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.fz-hero-metal-red { background:linear-gradient(135deg, #ff8a75, #c0392b); -webkit-background-clip:text; background-clip:text; color:transparent; }
 .fz-hero-label { font-size:13px; color:var(--text2); font-weight:500; }
 .fz-hero-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .fz-hero-value { font-size:26px; font-weight:600; letter-spacing:-0.5px; line-height:1.2; }
