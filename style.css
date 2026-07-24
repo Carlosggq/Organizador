@@ -309,7 +309,15 @@
 .fz-deuda-actions { display:flex; gap:8px; margin-top:10px; }
 .fz-deuda-actions .btn { padding:10px; font-size:13.5px; }
 
-/* Plan de salida */
+.fz-ring-wrap { display:flex; align-items:center; gap:14px; margin:10px 0 12px; }
+.fz-ring-box { position:relative; width:64px; height:64px; flex-shrink:0; }
+.fz-ring { width:64px; height:64px; border-radius:50%; }
+.fz-ring::after { content:''; }
+.fz-ring-hole { position:absolute; inset:8px; background:var(--bg2); border-radius:50%; }
+.fz-ring-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+.fz-ring-info { flex:1; min-width:0; }
+.fz-ring-amt { font-size:15px; font-weight:600; }
+.fz-ring-sub { font-size:11px; color:var(--text3); margin-top:2px; }
 .fz-plan-order-item { background:var(--bg2); border:0.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
 .fz-plan-badge { width:24px; height:24px; border-radius:50%; background:var(--teal2); color:var(--teal-light); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .fz-plan-badge.done { background:var(--bg4); color:var(--text3); }
