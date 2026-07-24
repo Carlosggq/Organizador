@@ -1249,10 +1249,15 @@ function renderTarjetasScreen() {
         Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
         Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b>
       </div>` : ''}
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}')">
-        <span>Gastos extra <span style="color:var(--text3)">(GPS, comisión, tapetes...)</span></span>
-        <b style="color:var(--text)">${money(deudaGastosExtraTotal(d.id))} &rsaquo;</b>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosExtra')">
+        <span>Gastos extra <span style="color:var(--text3)">(comisión, tapetes...)</span></span>
+        <b style="color:var(--text)">${money((d.gastosExtra||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosMensualidad')">
+        <span>Dentro de mensualidad <span style="color:var(--text3)">(GPS, IVA...)</span></span>
+        <b style="color:var(--text)">${money((d.gastosMensualidad||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
+      </div>
+      ${(() => { const prox = proximoPagoProgramado(d); return prox ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="registrarPagoProgramado('${d.id}')">Registrar pago programado (${formatFechaCorta(new Date(prox.fecha+'T00:00:00'))}) — ${money(prox.capital+prox.interes+prox.gps+prox.iva+prox.comision)}</button>` : ''; })()}
       <div class="fz-deuda-actions">
         <button class="btn btn-cancel" onclick="openDeudaModal('${d.id}')">Editar</button>
         <button class="btn btn-cancel" style="color:var(--red-light)" onclick="deleteDeuda('${d.id}')">Eliminar</button>
@@ -1341,12 +1346,15 @@ function deleteDeuda(id) {
   renderAll();
 }
 
-/* ---------- GASTOS EXTRA POR DEUDA (ej. coche: GPS, comisión, tapetes...) ---------- */
+/* ---------- GASTOS EXTRA POR DEUDA (ej. coche: GPS, comisión, tapetes... / dentro de mensualidad) ---------- */
 let currentDeudaExtraId = null;
-function openDeudaExtraModal(id) {
+let currentDeudaExtraKind = 'gastosExtra';
+function openDeudaExtraModal(id, kind) {
   currentDeudaExtraId = id;
+  currentDeudaExtraKind = kind || 'gastosExtra';
   const d = state.deudas.find(x => x.id === id);
-  document.getElementById('deuda-extra-modal-title').textContent = 'Gastos extra — ' + d.nombre;
+  const titulo = currentDeudaExtraKind === 'gastosExtra' ? 'Gastos extra — ' : 'Dentro de mensualidad — ';
+  document.getElementById('deuda-extra-modal-title').textContent = titulo + d.nombre;
   document.getElementById('de-nombre').value = '';
   document.getElementById('de-monto').value = '';
   renderDeudaExtraList();
@@ -1359,9 +1367,9 @@ function closeDeudaExtraModal() {
 function renderDeudaExtraList() {
   const d = state.deudas.find(x => x.id === currentDeudaExtraId);
   const el = document.getElementById('deuda-extra-list');
-  const items = d.gastosExtra || [];
+  const items = d[currentDeudaExtraKind] || [];
   if (!items.length) {
-    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin gastos extra todavía.</p>`;
+    el.innerHTML = `<p style="font-size:11px;color:var(--text3);padding:2px 2px 8px">Sin gastos todavía.</p>`;
   } else {
     el.innerHTML = items.map(g => `<div class="fz-gasto-item"><div class="fz-gasto-toprow">
         <div class="fz-gasto-body"><div class="fz-gasto-nombre">${g.nombre}</div></div>
@@ -1369,16 +1377,16 @@ function renderDeudaExtraList() {
         <div class="fz-gasto-del" onclick="deleteDeudaExtra('${g.id}')">&times;</div>
       </div></div>`).join('');
   }
-  const total = deudaGastosExtraTotal(currentDeudaExtraId);
+  const total = (d[currentDeudaExtraKind]||[]).reduce((s,g) => s + (Number(g.monto)||0), 0);
   el.innerHTML += `<p style="text-align:right;font-size:12px;color:var(--teal-light);margin-top:6px;font-weight:600">Total: ${money(total)}</p>`;
 }
 function addDeudaExtra() {
   const nombre = document.getElementById('de-nombre').value.trim();
   const monto = parseFloat(document.getElementById('de-monto').value) || 0;
-  if (!nombre) { alert('Escribe un nombre para el gasto extra.'); return; }
+  if (!nombre) { alert('Escribe un nombre.'); return; }
   const d = state.deudas.find(x => x.id === currentDeudaExtraId);
-  if (!d.gastosExtra) d.gastosExtra = [];
-  d.gastosExtra.push({ id: uid(), nombre, monto });
+  if (!d[currentDeudaExtraKind]) d[currentDeudaExtraKind] = [];
+  d[currentDeudaExtraKind].push({ id: uid(), nombre, monto });
   saveDeuda(d);
   document.getElementById('de-nombre').value = '';
   document.getElementById('de-monto').value = '';
@@ -1386,9 +1394,72 @@ function addDeudaExtra() {
 }
 function deleteDeudaExtra(gid) {
   const d = state.deudas.find(x => x.id === currentDeudaExtraId);
-  d.gastosExtra = (d.gastosExtra||[]).filter(g => g.id !== gid);
+  d[currentDeudaExtraKind] = (d[currentDeudaExtraKind]||[]).filter(g => g.id !== gid);
   saveDeuda(d);
   renderDeudaExtraList();
+}
+
+/* ---------- TABLA DE AMORTIZACIÓN (registro automático de pagos programados) ---------- */
+const AMORT_SCHEDULE_MARCH2020 = [
+  { fecha:'2026-08-01', capital:1855, interes:752, gps:350, iva:176, comision:0 },
+  { fecha:'2026-09-01', capital:1886, interes:725, gps:350, iva:172, comision:0 },
+  { fecha:'2026-10-01', capital:1918, interes:698, gps:350, iva:168, comision:0 },
+  { fecha:'2026-11-01', capital:1951, interes:670, gps:350, iva:163, comision:0 },
+  { fecha:'2026-12-01', capital:1984, interes:641, gps:350, iva:159, comision:0 },
+  { fecha:'2026-12-15', capital:2017, interes:613, gps:350, iva:154, comision:0 },
+  { fecha:'2027-01-15', capital:2051, interes:583, gps:350, iva:149, comision:0 },
+  { fecha:'2027-02-15', capital:2086, interes:553, gps:350, iva:145, comision:0 },
+  { fecha:'2027-03-15', capital:2121, interes:523, gps:350, iva:140, comision:0 },
+  { fecha:'2027-04-15', capital:2157, interes:492, gps:350, iva:135, comision:0 },
+  { fecha:'2027-05-15', capital:2194, interes:461, gps:350, iva:130, comision:0 },
+  { fecha:'2027-06-15', capital:2231, interes:429, gps:350, iva:125, comision:0 },
+  { fecha:'2027-07-15', capital:2268, interes:396, gps:350, iva:119, comision:0 },
+  { fecha:'2027-08-15', capital:2307, interes:363, gps:350, iva:114, comision:0 },
+  { fecha:'2027-09-15', capital:2346, interes:329, gps:350, iva:109, comision:0 },
+  { fecha:'2027-10-15', capital:2385, interes:295, gps:350, iva:103, comision:0 },
+  { fecha:'2027-11-15', capital:2426, interes:260, gps:350, iva:98, comision:0 },
+  { fecha:'2027-12-15', capital:2467, interes:225, gps:350, iva:92, comision:0 },
+  { fecha:'2028-01-15', capital:2508, interes:189, gps:350, iva:86, comision:0 },
+  { fecha:'2028-02-15', capital:2551, interes:153, gps:350, iva:80, comision:0 },
+  { fecha:'2028-03-15', capital:2594, interes:115, gps:350, iva:74, comision:0 },
+  { fecha:'2028-04-15', capital:2638, interes:78, gps:350, iva:68, comision:0 },
+  { fecha:'2028-05-15', capital:2682, interes:39, gps:350, iva:62, comision:0 }
+];
+function getAmortSchedule(d) {
+  if (d.tablaAmortizacion && d.tablaAmortizacion.length) return d.tablaAmortizacion;
+  if (d.nombre && d.nombre.toLowerCase().includes('march 2020')) return AMORT_SCHEDULE_MARCH2020;
+  return null;
+}
+function proximoPagoProgramado(d) {
+  const sched = getAmortSchedule(d);
+  if (!sched) return null;
+  const usadas = d.amortizacionUsadas || [];
+  return sched.find(r => !usadas.includes(r.fecha)) || null;
+}
+function registrarPagoProgramado(deudaId) {
+  const d = state.deudas.find(x => x.id === deudaId);
+  const row = proximoPagoProgramado(d);
+  if (!row) { alert('No hay más pagos programados en la tabla de amortización.'); return; }
+  const q = currentQuincena();
+  if (!q) { alert('Abre o crea una quincena primero.'); return; }
+  const totalMensualidad = row.capital + row.interes;
+  if (!confirm(`¿Registrar el pago de ${formatFechaCorta(new Date(row.fecha+'T00:00:00'))} en la quincena actual?\n\nCapital: ${money(row.capital)}\nInterés: ${money(row.interes)}\nGPS: ${money(row.gps)}\nIVA: ${money(row.iva)}${row.comision ? '\nComisión: '+money(row.comision) : ''}`)) return;
+  if (!q.gastos) q.gastos = [];
+  q.gastos.push({
+    id: uid(), tipo: 'Fijos', concepto: `Mensualidad ${d.nombre}`,
+    presupuestado: totalMensualidad, gastado: totalMensualidad,
+    formaPago: 'pago', tarjetaId: d.id, montoCapital: row.capital, metaAhorroId: null, pagado: true
+  });
+  saveQuincena(q);
+  const fechaEtq = formatFechaCorta(new Date(row.fecha+'T00:00:00'));
+  if (!d.gastosMensualidad) d.gastosMensualidad = [];
+  if (row.gps) d.gastosMensualidad.push({ id: uid(), nombre: `GPS (${fechaEtq})`, monto: row.gps });
+  if (row.iva) d.gastosMensualidad.push({ id: uid(), nombre: `IVA (${fechaEtq})`, monto: row.iva });
+  if (row.comision) d.gastosMensualidad.push({ id: uid(), nombre: `Comisión (${fechaEtq})`, monto: row.comision });
+  if (!d.amortizacionUsadas) d.amortizacionUsadas = [];
+  d.amortizacionUsadas.push(row.fecha);
+  saveDeuda(d);
+  renderAll();
 }
 
 /* ---------- METAS DE AHORRO ---------- */
