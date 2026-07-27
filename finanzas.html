@@ -76,6 +76,7 @@
     <div class="biz-tabs" style="margin-bottom:12px">
       <div class="biz-tab active" id="pt-tab-p15" onclick="switchPlantillaTab('p15')">Del 15</div>
       <div class="biz-tab" id="pt-tab-p30" onclick="switchPlantillaTab('p30')">Del 30</div>
+      <div class="biz-tab" id="pt-tab-semanal" onclick="switchPlantillaTab('semanal')">Semanal</div>
     </div>
     <div id="plantilla-list" style="max-height:50vh;overflow-y:auto;margin-bottom:10px"></div>
     <button class="fz-add-gasto-btn" onclick="openPlantillaItemModal(null)">+ Agregar concepto a la plantilla</button>
@@ -118,17 +119,8 @@
   <div class="modal">
     <h3 id="meta-modal-title">Apartado de ahorro</h3>
     <input type="text" id="m-nombre" placeholder="Nombre (ej. Vacaciones)" maxlength="30">
-    <select id="m-tipo" onchange="updateMetaTipoVisibility()">
-      <option value="ahorro">Ahorro manual (lo alimento con conceptos)</option>
-      <option value="debt">Automático — libertad de tarjetas (según saldo)</option>
-    </select>
-    <div id="m-ahorro-fields">
-      <input type="number" id="m-meta" placeholder="Meta ($) — opcional" inputmode="decimal" step="0.01" min="0">
-    </div>
-    <div id="m-debt-fields" style="display:none">
-      <p style="font-size:11px;color:var(--text3);margin:4px 2px 6px">Elige qué tarjetas cuentan para esta meta. La meta será la suma de sus saldos actuales.</p>
-      <div id="m-deudas-checks" style="margin-bottom:10px"></div>
-    </div>
+    <input type="number" id="m-meta" placeholder="Meta ($) — opcional" inputmode="decimal" step="0.01" min="0">
+    <p style="font-size:11px;color:var(--text3);margin:-4px 2px 10px;">Se alimenta de conceptos tipo "Ahorro" que vincules en Quincena.</p>
     <input type="text" id="m-donde" placeholder="¿Dónde está guardado? (ej. Nu, Cuenta Didi)" maxlength="40">
     <select id="m-color">
       <option value="teal">Verde metálico</option>
@@ -437,22 +429,24 @@ const PLANTILLAS_DEFAULT = {
     { tipo: 'Fijos', concepto: 'Semana 1', presupuestado: 800 },
     { tipo: 'Fijos', concepto: 'Claude IA', presupuestado: 400 },
     { tipo: 'Fijos', concepto: 'Semana 2', presupuestado: 800 }
-  ]
+  ],
+  semanal: []
 };
 function withIds(arr) { return arr.map(x => ({ id: uid(), ...x })); }
 
 let state = {
   quincenas: load('fz_quincenas', []),
   deudas: load('fz_deudas', []),
-  plantillas: load('fz_plantillas', { p15: withIds(PLANTILLAS_DEFAULT.p15), p30: withIds(PLANTILLAS_DEFAULT.p30) }),
+  plantillas: load('fz_plantillas', { p15: withIds(PLANTILLAS_DEFAULT.p15), p30: withIds(PLANTILLAS_DEFAULT.p30), semanal: [] }),
   metas: load('fz_metas', null) || withIds([
-    { nombre: 'Libertad de tarjetas', tipo: 'debt', deudaIds: [], objetivoInicial: 0, donde: '' },
     { nombre: 'Ahorro de emergencia', tipo: 'ahorro', meta: 50000, donde: '' },
     { nombre: 'Vacaciones', tipo: 'ahorro', meta: 0, donde: '' }
   ]),
   currentQuincenaId: load('fz_currentQuincenaId', null),
+  vistaPeriodo: load('fz_vistaPeriodo', 'quincenal'),
   currentScreen: 'fz-quincena'
 };
+if (!state.plantillas.semanal) state.plantillas.semanal = [];
 let plantillaTab = 'p15';
 
 function detectarPlantilla(fechaInicioISO) {
@@ -605,11 +599,27 @@ function renderNav() {
 }
 
 /* ---------- QUINCENA SCREEN ---------- */
-function currentQuincenaIndex() { return state.quincenas.findIndex(q => q.id === state.currentQuincenaId); }
+function periodosDeVista(vista) {
+  const v = vista || state.vistaPeriodo;
+  return state.quincenas.filter(p => (p.tipoPeriodo || 'quincenal') === v);
+}
+function currentQuincenaIndex() {
+  const list = periodosDeVista(state.vistaPeriodo);
+  return list.findIndex(q => q.id === state.currentQuincenaId);
+}
 function currentQuincena() {
+  const list = periodosDeVista(state.vistaPeriodo);
   const idx = currentQuincenaIndex();
-  if (idx >= 0) return state.quincenas[idx];
-  return state.quincenas.length ? state.quincenas[state.quincenas.length - 1] : null;
+  if (idx >= 0) return list[idx];
+  return list.length ? list[list.length - 1] : null;
+}
+function switchVistaPeriodo(vista) {
+  state.vistaPeriodo = vista;
+  save('fz_vistaPeriodo', vista);
+  const list = periodosDeVista(vista);
+  state.currentQuincenaId = list.length ? list[list.length - 1].id : null;
+  save('fz_currentQuincenaId', state.currentQuincenaId);
+  renderAll();
 }
 
 function ingresoExtraTotal(q) {
@@ -619,16 +629,21 @@ function ingresoExtraTotal(q) {
 function renderQuincenaScreen() {
   const el = document.getElementById('fz-quincena-content');
   const q = currentQuincena();
+  const vistaTabsHtml = `<div class="biz-tabs" style="margin-bottom:12px">
+    <div class="biz-tab ${state.vistaPeriodo==='quincenal'?'active':''}" onclick="switchVistaPeriodo('quincenal')">Quincenal</div>
+    <div class="biz-tab ${state.vistaPeriodo==='semanal'?'active':''}" onclick="switchVistaPeriodo('semanal')">Semanal</div>
+  </div>`;
 
   if (!q) {
-    el.innerHTML = `<div class="empty-state" style="margin-top:40px"><p>Todavía no tienes ninguna quincena registrada.</p></div>
-      <button class="fz-add-gasto-btn" onclick="openQuincenaModal(null)">+ Crear primera quincena</button>`;
+    el.innerHTML = vistaTabsHtml + `<div class="empty-state" style="margin-top:24px"><p>Todavía no tienes ningún periodo ${state.vistaPeriodo === 'semanal' ? 'semanal' : 'quincenal'} registrado.</p></div>
+      <button class="fz-add-gasto-btn" onclick="openQuincenaModal(null)">+ Crear ${state.vistaPeriodo === 'semanal' ? 'semana' : 'quincena'}</button>`;
     return;
   }
 
+  const vistaList = periodosDeVista(state.vistaPeriodo);
   const curIdx = currentQuincenaIndex();
   const isFirst = curIdx === 0;
-  const isLast = curIdx === state.quincenas.length - 1;
+  const isLast = curIdx === vistaList.length - 1;
   const gastos = q.gastos || [];
   /* "Pago a tarjeta" no es gasto nuevo (ya se contó cuando se cargó) — no participa en nada de este resumen,
      solo actualiza el saldo de la tarjeta en la pestaña Tarjetas. "Cargo a tarjeta" SÍ es el gasto real. */
@@ -666,7 +681,7 @@ function renderQuincenaScreen() {
     ? `radial-gradient(circle at 32% 24%, rgba(255,255,255,0.45), transparent 55%), conic-gradient(${stops.join(',')})`
     : `var(--bg4)`;
 
-  let html = '';
+  let html = vistaTabsHtml;
 
   html += `<div class="fz-hero">
     <div class="fz-hero-label">DISPONIBLE PARA GASTAR</div>
@@ -690,7 +705,7 @@ function renderQuincenaScreen() {
   </div>`;
 
   if (isLast) {
-    html += `<button class="fz-add-gasto-btn" style="margin-bottom:12px" onclick="openQuincenaModal(null)">+ Nueva quincena</button>`;
+    html += `<button class="fz-add-gasto-btn" style="margin-bottom:12px" onclick="openQuincenaModal(null)">+ ${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}</button>`;
   }
 
   if (cargoCount > 0) {
@@ -807,23 +822,26 @@ function updateGastoTarjetaVisibility() {
   capFields.style.display = showCapital ? '' : 'none';
 }
 
-/* Empareja la quincena actual con su "otra mitad" del mes (del 15 + del 30) para ver el total del mes */
-function quincenasDelMes(index) {
-  const q = state.quincenas[index];
-  if (!q) return [q].filter(Boolean);
+/* Empareja la quincena actual con su "otra mitad" del mes (del 15 + del 30) para ver el total del mes.
+   Las semanas no se emparejan, cada una se ve sola. */
+function quincenasDelMes(q) {
+  if (!q) return [];
+  if ((q.tipoPeriodo || 'quincenal') !== 'quincenal') return [q];
+  const list = periodosDeVista('quincenal');
+  const idx = list.findIndex(p => p.id === q.id);
   const tipoActual = detectarPlantilla(q.fechaInicio);
   if (tipoActual === 'p30') {
-    const sig = state.quincenas[index + 1];
+    const sig = list[idx + 1];
     if (sig && detectarPlantilla(sig.fechaInicio) === 'p15') return [q, sig];
   } else {
-    const ant = state.quincenas[index - 1];
+    const ant = list[idx - 1];
     if (ant && detectarPlantilla(ant.fechaInicio) === 'p30') return [ant, q];
   }
   return [q];
 }
 
 function renderCargoEfectivoResumen() {
-  const qs = quincenasDelMes(currentQuincenaIndex());
+  const qs = quincenasDelMes(currentQuincena());
   let cargo = 0, efectivo = 0;
   qs.forEach(q => (q.gastos||[]).forEach(g => {
     if (g.formaPago === 'pago') return; /* saldar tarjeta no es gasto del mes, no participa aquí */
@@ -837,7 +855,7 @@ function renderCargoEfectivoResumen() {
   const excede = cap != null && cargo > cap;
   return `<div class="fz-summary-card" style="display:block">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
-      Destinado del mes (${qs.length === 2 ? '2 quincenas' : 'esta quincena'})
+      Destinado del mes (${qs.length === 2 ? '2 quincenas' : 'este periodo'})
     </div>
     <div class="fz-summary-row"><span class="fz-lbl" style="color:var(--coral-light)">A tarjeta</span><span class="fz-val" style="${excede ? 'color:var(--red-light)' : ''}">${money(cargo)}${cap != null ? ' / ' + money(cap) : ''}</span></div>
     <div class="fz-summary-row" style="margin-top:4px"><span class="fz-lbl" style="color:var(--teal-light)">Efectivo / cuenta</span><span class="fz-val">${money(efectivo)}</span></div>
@@ -847,10 +865,11 @@ function renderCargoEfectivoResumen() {
 }
 
 function changeQuincena(dir) {
+  const list = periodosDeVista(state.vistaPeriodo);
   const curIdx = currentQuincenaIndex();
   const ni = curIdx + dir;
-  if (ni < 0 || ni >= state.quincenas.length) return;
-  state.currentQuincenaId = state.quincenas[ni].id;
+  if (ni < 0 || ni >= list.length) return;
+  state.currentQuincenaId = list[ni].id;
   save('fz_currentQuincenaId', state.currentQuincenaId);
   renderQuincenaScreen();
 }
@@ -859,18 +878,36 @@ function changeQuincena(dir) {
 function openQuincenaModal(id) {
   editingGastoId = null;
   const isNew = !id;
-  document.getElementById('quincena-modal-title').textContent = isNew ? 'Nueva quincena' : 'Editar quincena';
+  const vista = isNew ? state.vistaPeriodo : ((state.quincenas.find(x => x.id === id) || {}).tipoPeriodo || 'quincenal');
+  document.getElementById('quincena-modal-title').textContent = isNew ? (vista === 'semanal' ? 'Nueva semana' : 'Nueva quincena') : 'Editar periodo';
   document.getElementById('q-fuente').style.display = isNew ? '' : 'none';
   document.getElementById('quincena-modal-overlay').dataset.editId = id || '';
+  document.getElementById('quincena-modal-overlay').dataset.vista = vista;
+
+  const fuenteSel = document.getElementById('q-fuente');
+  if (vista === 'semanal') {
+    fuenteSel.innerHTML = `
+      <option value="semanal">Usar plantilla semanal</option>
+      <option value="anterior">Copiar de la semana anterior</option>
+      <option value="vacia">Empezar vacía</option>`;
+  } else {
+    fuenteSel.innerHTML = `
+      <option value="auto">Detectar plantilla automático (según fecha)</option>
+      <option value="p15">Usar plantilla "Del 15"</option>
+      <option value="p30">Usar plantilla "Del 30"</option>
+      <option value="anterior">Copiar de la quincena anterior</option>
+      <option value="vacia">Empezar vacía</option>`;
+  }
 
   if (isNew) {
-    const last = state.quincenas[state.quincenas.length - 1];
+    const listaVista = periodosDeVista(vista);
+    const last = listaVista[listaVista.length - 1];
     let inicio = '', fin = '', label = '';
     if (last && last.fechaFin) {
       const d = new Date(last.fechaFin + 'T00:00:00');
       d.setDate(d.getDate() + 1);
       inicio = d.toISOString().slice(0,10);
-      const d2 = new Date(d); d2.setDate(d2.getDate() + 15);
+      const d2 = new Date(d); d2.setDate(d2.getDate() + (vista === 'semanal' ? 6 : 15));
       fin = d2.toISOString().slice(0,10);
       label = `${fechaCorta(inicio)} - ${fechaCorta(fin)}`;
     }
@@ -878,7 +915,7 @@ function openQuincenaModal(id) {
     document.getElementById('q-inicio').value = inicio;
     document.getElementById('q-fin').value = fin;
     document.getElementById('q-ingresos').value = last ? last.ingresos : '';
-    document.getElementById('q-fuente').value = 'auto';
+    document.getElementById('q-fuente').value = vista === 'semanal' ? 'semanal' : 'auto';
   } else {
     const q = state.quincenas.find(x => x.id === id);
     document.getElementById('q-label').value = q.label || '';
@@ -902,15 +939,17 @@ function confirmQuincena() {
     Object.assign(q, { label, fechaInicio, fechaFin, ingresos });
     saveQuincena(q);
   } else {
+    const vista = document.getElementById('quincena-modal-overlay').dataset.vista || 'quincenal';
     const fuente = document.getElementById('q-fuente').value;
-    const last = state.quincenas[state.quincenas.length - 1];
+    const listaVista = periodosDeVista(vista);
+    const last = listaVista[listaVista.length - 1];
     let gastos = [];
     if (fuente === 'anterior' && last && last.gastos) {
       gastos = last.gastos.map(g => ({ id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null }));
     } else if (fuente === 'vacia') {
       gastos = [];
     } else {
-      const key = fuente === 'p15' || fuente === 'p30' ? fuente : detectarPlantilla(fechaInicio);
+      const key = fuente === 'p15' || fuente === 'p30' || fuente === 'semanal' ? fuente : detectarPlantilla(fechaInicio);
       gastos = (state.plantillas[key] || []).map(g => {
         const base = { id: uid(), tipo: g.tipo, concepto: g.concepto, presupuestado: g.presupuestado, gastado: 0, pagado: false, formaPago: 'efectivo', tarjetaId: null, montoCapital: null, metaAhorroId: null };
         const itemFormaPago = g.formaPago || (g.vincularDeuda ? 'pago' : 'efectivo');
@@ -921,7 +960,7 @@ function confirmQuincena() {
         return base;
       });
     }
-    const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ingresosExtra: [], gastos };
+    const q = { id: uid(), label, fechaInicio, fechaFin, ingresos, ingresosExtra: [], gastos, tipoPeriodo: vista };
     state.quincenas.push(q);
     state.currentQuincenaId = q.id;
     save('fz_currentQuincenaId', state.currentQuincenaId);
@@ -1158,17 +1197,15 @@ function savePlantillas() {
 }
 
 function openPlantillaModal() {
-  plantillaTab = 'p15';
-  document.getElementById('pt-tab-p15').classList.add('active');
-  document.getElementById('pt-tab-p30').classList.remove('active');
+  plantillaTab = state.vistaPeriodo === 'semanal' ? 'semanal' : 'p15';
+  ['p15','p30','semanal'].forEach(t => document.getElementById('pt-tab-'+t).classList.toggle('active', t === plantillaTab));
   renderPlantillaList();
   document.getElementById('plantilla-modal-overlay').classList.add('open');
 }
 function closePlantillaModal() { document.getElementById('plantilla-modal-overlay').classList.remove('open'); renderAll(); }
 function switchPlantillaTab(tab) {
   plantillaTab = tab;
-  document.getElementById('pt-tab-p15').classList.toggle('active', tab === 'p15');
-  document.getElementById('pt-tab-p30').classList.toggle('active', tab === 'p30');
+  ['p15','p30','semanal'].forEach(t => document.getElementById('pt-tab-'+t).classList.toggle('active', t === tab));
   renderPlantillaList();
 }
 function renderPlantillaList() {
@@ -1283,10 +1320,10 @@ function renderDeudaCard(d, i) {
         Pagado acumulado: <b style="color:var(--text)">${money(ac.total)}</b><br>
         Capital: <b style="color:var(--teal-light)">${money(ac.capital)}</b> · Interés: <b style="color:var(--red-light)">${money(ac.interes)}</b> · Extras: <b style="color:var(--amber-light)">${money(ac.extras)} &rsaquo;</b>
       </div>` : ''}
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosExtra')">
+      ${(d.tipo === 'automotriz' || d.tipo === 'hipotecario') ? `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12.5px;color:var(--text2);cursor:pointer" onclick="openDeudaExtraModal('${d.id}','gastosExtra')">
         <span>Gastos extra <span style="color:var(--text3)">(comisión, tapetes...)</span></span>
         <b style="color:var(--text)">${money((d.gastosExtra||[]).reduce((s,g)=>s+(Number(g.monto)||0),0))} &rsaquo;</b>
-      </div>
+      </div>` : ''}
       ${esPrestamo ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="openAmortModal('${d.id}')">Configurar tabla de amortización</button>` : ''}
       ${(() => { const prox = proximoPagoProgramado(d); return prox ? `<button class="fz-add-gasto-btn" style="margin-top:8px" onclick="registrarPagoProgramado('${d.id}')">Registrar pago programado (${formatFechaCorta(new Date(prox.fecha+'T00:00:00'))}) — ${money(prox.capital+prox.interes+prox.gps+prox.iva+prox.comision)}</button>` : ''; })()}
       <div class="fz-deuda-actions">
@@ -1619,49 +1656,29 @@ function deleteMeta(id) {
 function openMetaModal(id) {
   editingMetaId = id;
   document.getElementById('meta-modal-title').textContent = id ? 'Editar apartado' : 'Nuevo apartado';
-  const checksEl = document.getElementById('m-deudas-checks');
   const m = id ? state.metas.find(x => x.id === id) : null;
-  checksEl.innerHTML = state.deudas.map(d => `<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);margin-bottom:6px">
-      <input type="checkbox" value="${d.id}" ${(m && m.deudaIds && m.deudaIds.includes(d.id)) ? 'checked' : ''}> ${d.nombre} (${money(tarjetaSaldoActual(d.id))})
-    </label>`).join('') || '<p style="font-size:11px;color:var(--text3)">Agrega tarjetas primero en la pestaña "Tarjetas".</p>';
 
   if (m) {
     document.getElementById('m-nombre').value = m.nombre;
-    document.getElementById('m-tipo').value = m.tipo;
     document.getElementById('m-meta').value = m.meta || '';
     document.getElementById('m-donde').value = m.donde || '';
     document.getElementById('m-color').value = m.color || 'teal';
   } else {
     document.getElementById('m-nombre').value = '';
-    document.getElementById('m-tipo').value = 'ahorro';
     document.getElementById('m-meta').value = '';
     document.getElementById('m-donde').value = '';
     document.getElementById('m-color').value = 'teal';
   }
-  updateMetaTipoVisibility();
   document.getElementById('meta-modal-overlay').classList.add('open');
 }
 function closeMetaModal() { document.getElementById('meta-modal-overlay').classList.remove('open'); }
-function updateMetaTipoVisibility() {
-  const tipo = document.getElementById('m-tipo').value;
-  document.getElementById('m-ahorro-fields').style.display = tipo === 'ahorro' ? '' : 'none';
-  document.getElementById('m-debt-fields').style.display = tipo === 'debt' ? '' : 'none';
-}
 function confirmMeta() {
   const nombre = document.getElementById('m-nombre').value.trim();
   if (!nombre) { alert('Escribe un nombre.'); return; }
-  const tipo = document.getElementById('m-tipo').value;
   const donde = document.getElementById('m-donde').value.trim();
   const color = document.getElementById('m-color').value;
-  let data = { nombre, tipo, donde, color };
-  if (tipo === 'ahorro') {
-    data.meta = parseFloat(document.getElementById('m-meta').value) || 0;
-  } else {
-    const deudaIds = Array.from(document.querySelectorAll('#m-deudas-checks input:checked')).map(i => i.value);
-    const objetivoInicial = deudaIds.reduce((s, id) => s + tarjetaSaldoActual(id), 0);
-    data.deudaIds = deudaIds;
-    data.objetivoInicial = objetivoInicial;
-  }
+  const meta = parseFloat(document.getElementById('m-meta').value) || 0;
+  const data = { nombre, tipo: 'ahorro', donde, color, meta };
   if (editingMetaId) {
     const m = state.metas.find(x => x.id === editingMetaId);
     Object.assign(m, data);
