@@ -21,7 +21,7 @@
       <div class="header-left">
         <a href="index.html" class="back-link">&larr; Inicio</a>
         <h1>Finanzas</h1>
-        <p>Presupuesto quincenal</p>
+        <p id="fz-quincena-subtitle">Presupuesto quincenal</p>
       </div>
       <div class="header-right" id="fz-sync-chip"></div>
     </div>
@@ -629,6 +629,8 @@ function ingresoExtraTotal(q) {
 function renderQuincenaScreen() {
   const el = document.getElementById('fz-quincena-content');
   const q = currentQuincena();
+  const subtitleEl = document.getElementById('fz-quincena-subtitle');
+  if (subtitleEl) subtitleEl.textContent = state.vistaPeriodo === 'semanal' ? 'Presupuesto semanal' : 'Presupuesto quincenal';
   const vistaTabsHtml = `<div class="biz-tabs" style="margin-bottom:12px">
     <div class="biz-tab ${state.vistaPeriodo==='quincenal'?'active':''}" onclick="switchVistaPeriodo('quincenal')">Quincenal</div>
     <div class="biz-tab ${state.vistaPeriodo==='semanal'?'active':''}" onclick="switchVistaPeriodo('semanal')">Semanal</div>
@@ -734,6 +736,8 @@ function renderQuincenaScreen() {
 
   html += renderCargoEfectivoResumen();
 
+  html += `<button class="fz-add-gasto-btn" style="margin:12px 0" onclick="openGastoModal(null)">+ Agregar concepto de gasto</button>`;
+
   ['Fijos','Variables','Ocio','Ahorro'].forEach(tipo => {
     const items = gastos.filter(g => g.tipo === tipo);
     html += `<div class="fz-tipo-group">
@@ -772,7 +776,6 @@ function renderQuincenaScreen() {
     html += `</div>`;
   });
 
-  html += `<button class="fz-add-gasto-btn" onclick="openGastoModal(null)">+ Agregar concepto de gasto</button>`;
 
   el.innerHTML = html;
 }
