@@ -692,8 +692,11 @@ function renderQuincenaScreen() {
       <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
     </div>
     <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
-    ${isLast ? `<span class="fz-qp-add" onclick="openQuincenaModal(null)" title="${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}">+</span>` : ''}
   </div>`;
+
+  if (isLast) {
+    html += `<div class="fz-qp-add" onclick="openQuincenaModal(null)">+ ${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}</div>`;
+  }
 
   if (cargoCount > 0) {
     html += `<div class="fz-alert-banner" style="background:var(--bg3);border-color:var(--border2);color:var(--text2)">
@@ -702,7 +705,7 @@ function renderQuincenaScreen() {
     </div>`;
   }
 
-  html += `<div class="fz-hero">
+  html += `<div class="fz-hero" style="margin-top:18px">
     <div class="fz-hero-label">DISPONIBLE PARA GASTAR</div>
     <div class="fz-hero-row">
       <div class="fz-hero-value ${meQueda < 0 ? 'fz-hero-metal-red' : 'fz-hero-metal-teal'}">${money(meQueda)}</div>
