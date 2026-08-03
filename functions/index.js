@@ -35,7 +35,6 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // Valores REALES que espera la app (no los cambies — así están escritos en finanzas.html).
 const TIPOS_VALIDOS = ["Fijos", "Variables", "Ocio", "Ahorro"];
-const FORMAS_VALIDAS = ["efectivo", "cargo", "pago"];
 
 // Las 4 categorías fijas de la pantalla "Tarjetas y deudas" (deben coincidir con CATEGORIA_DEUDA en finanzas.html).
 const CATEGORIA_DEUDA = [
@@ -45,20 +44,6 @@ const CATEGORIA_DEUDA = [
   { key: "hipotecario", label: "Hipotecario" }
 ];
 const CATEGORIA_LABEL = Object.fromEntries(CATEGORIA_DEUDA.map(c => [c.key, c.label]));
-
-// Alias: lo que TÚ escribes en Telegram → lo que se guarda en Firestore (lo que la app entiende).
-// Agrega aquí más palabras si quieres poder escribir distinto.
-const ALIAS_TIPO = {
-  "fijo": "Fijos", "fijos": "Fijos",
-  "variable": "Variables", "variables": "Variables",
-  "ocio": "Ocio",
-  "ahorro": "Ahorro"
-};
-const ALIAS_FORMA = {
-  "efectivo": "efectivo",
-  "gasto": "cargo", "cargo": "cargo",
-  "pago": "pago"
-};
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
@@ -113,13 +98,6 @@ async function obtenerPeriodoActual(fzCode, vista) {
   return periodos.length ? periodos[periodos.length - 1] : null;
 }
 
-async function buscarDeudaPorNombre(fzCode, nombre) {
-  if (!nombre) return null;
-  const snap = await db.collection("households").doc(fzCode).collection("fz_deudas").get();
-  const match = snap.docs.find(d => (d.data().nombre || "").toLowerCase() === nombre.toLowerCase());
-  return match ? { id: match.id, ...match.data() } : null;
-}
-
 async function listarDeudasPorCategoria(fzCode, categoriaKey) {
   const snap = await db.collection("households").doc(fzCode).collection("fz_deudas").get();
   return snap.docs
@@ -140,70 +118,117 @@ async function insertarGasto(usuario, nuevoGasto, chatId, mensajeExito) {
   await enviarMensaje(chatId, mensajeExito(periodo));
 }
 
-async function manejarGasto(usuario, partes, chatId) {
-  const [conceptoRaw, montoRaw, tipoRaw, formaPagoRaw, tarjetaRaw] = partes.map(p => (p || "").trim());
+// Estado intermedio de un /gasto en construcción, mientras el usuario va tocando botones.
+// Telegram no manda contexto entre mensajes, así que lo guardamos nosotros por chat.
+function pendienteRef(chatId) {
+  return db.collection("bot_pendientes").doc(String(chatId));
+}
 
-  if (!conceptoRaw || !montoRaw || !tipoRaw) {
-    await enviarMensaje(chatId, "Formato: /gasto Concepto, Monto, Tipo, FormaPago (opcional), Tarjeta (opcional)\n\nEj: /gasto Transporte, 400, Fijos");
+// --- /gasto: paso 1, el usuario escribe "Concepto, Monto" ---
+async function manejarGastoInicio(usuario, resto, chatId) {
+  const [conceptoRaw, montoRaw] = resto.split(",").map(p => (p || "").trim());
+  if (!conceptoRaw || !montoRaw) {
+    await enviarMensaje(chatId, "Formato: /gasto Concepto, Monto\n\nEj: /gasto Uber, 150\n\nDespués te pregunto tipo, forma de pago y tarjeta con botones.");
     return;
   }
   const monto = parseFloat(montoRaw.replace(/[^0-9.]/g, ""));
   if (isNaN(monto) || monto <= 0) {
-    await enviarMensaje(chatId, "❌ El monto no es válido. Ejemplo correcto: /gasto Transporte, 400, Fijos");
+    await enviarMensaje(chatId, "❌ El monto no es válido. Ejemplo: /gasto Uber, 150");
     return;
   }
-  const tipo = ALIAS_TIPO[tipoRaw.toLowerCase()];
-  if (!tipo) {
-    await enviarMensaje(chatId, `❌ Tipo inválido. Usa uno de: ${Object.keys(ALIAS_TIPO).join(", ")}`);
+  await pendienteRef(chatId).set({ concepto: conceptoRaw, monto });
+  const botones = TIPOS_VALIDOS.map(t => ({ text: t, callback_data: `gtipo|${t}` }));
+  await enviarBotones(chatId, `"${conceptoRaw}" — ${money(monto)}\n\n¿Qué tipo de gasto es?`, botones);
+}
+
+// --- /gasto: paso 2, tocó el tipo ---
+async function manejarGastoTipo(usuario, tipo, chatId) {
+  const snap = await pendienteRef(chatId).get();
+  if (!snap.exists) {
+    await enviarMensaje(chatId, "❌ Se perdió el contexto (¿tardaste mucho?). Empieza de nuevo con /gasto.");
     return;
   }
-  let formaPago = "efectivo";
-  if (formaPagoRaw) {
-    const fp = ALIAS_FORMA[formaPagoRaw.toLowerCase()];
-    if (!fp) {
-      await enviarMensaje(chatId, `❌ Forma de pago inválida. Usa: ${Object.keys(ALIAS_FORMA).join(", ")}`);
-      return;
-    }
-    formaPago = fp;
-  }
+  await pendienteRef(chatId).update({ tipo });
+  const botones = [
+    { text: "Efectivo", callback_data: "gforma|efectivo" },
+    { text: "Cargo a tarjeta", callback_data: "gforma|cargo" }
+  ];
+  await enviarBotones(chatId, "¿Cómo lo pagaste?", botones);
+}
 
-  let tarjetaId = null;
-  let tarjetaNombre = null;
-  if (formaPago !== "efectivo") {
-    if (!tarjetaRaw) {
-      await enviarMensaje(chatId, "❌ Si es cargo o pago necesitas indicar la tarjeta. Ej: /gasto Telcel, 549, Fijos, cargo, Banamex");
-      return;
-    }
-    const deuda = await buscarDeudaPorNombre(usuario.fzCode, tarjetaRaw);
-    if (!deuda) {
-      await enviarMensaje(chatId, `❌ No encontré una tarjeta/deuda llamada "${tarjetaRaw}" en tu app. Revisa el nombre exacto.`);
-      return;
-    }
-    tarjetaId = deuda.id;
-    tarjetaNombre = deuda.nombre;
+// --- /gasto: paso 3, tocó forma de pago (si es Efectivo, aquí mismo se guarda el gasto) ---
+async function manejarGastoForma(usuario, forma, chatId) {
+  const snap = await pendienteRef(chatId).get();
+  if (!snap.exists) {
+    await enviarMensaje(chatId, "❌ Se perdió el contexto. Empieza de nuevo con /gasto.");
+    return;
   }
+  const pend = snap.data();
+  if (forma === "efectivo") {
+    await finalizarGasto(usuario, { ...pend, formaPago: "efectivo", tarjetaId: null }, chatId, null);
+    await pendienteRef(chatId).delete();
+    return;
+  }
+  await pendienteRef(chatId).update({ formaPago: "cargo" });
+  const botones = CATEGORIA_DEUDA.map(c => ({ text: c.label, callback_data: `gcat|${c.key}` }));
+  await enviarBotones(chatId, "¿A qué categoría de tarjeta se carga?", botones);
+}
 
+// --- /gasto: paso 4, tocó la categoría (si solo hay 1 tarjeta ahí, se guarda directo) ---
+async function manejarGastoCategoria(usuario, categoriaKey, chatId) {
+  const snap = await pendienteRef(chatId).get();
+  if (!snap.exists) {
+    await enviarMensaje(chatId, "❌ Se perdió el contexto. Empieza de nuevo con /gasto.");
+    return;
+  }
+  const pend = snap.data();
+  const items = await listarDeudasPorCategoria(usuario.fzCode, categoriaKey);
+  if (items.length === 0) {
+    await enviarMensaje(chatId, `❌ No tienes ninguna tarjeta/deuda en "${CATEGORIA_LABEL[categoriaKey]}".`);
+    return;
+  }
+  if (items.length === 1) {
+    await finalizarGasto(usuario, { ...pend, tarjetaId: items[0].id }, chatId, items[0].nombre);
+    await pendienteRef(chatId).delete();
+    return;
+  }
+  const botones = items.map(d => ({ text: d.nombre, callback_data: `gdeuda|${d.id}` }));
+  await enviarBotones(chatId, "¿A cuál tarjeta?", botones);
+}
+
+// --- /gasto: paso 5 (solo si había más de una tarjeta en la categoría) ---
+async function manejarGastoDeuda(usuario, deudaId, chatId) {
+  const snap = await pendienteRef(chatId).get();
+  if (!snap.exists) {
+    await enviarMensaje(chatId, "❌ Se perdió el contexto. Empieza de nuevo con /gasto.");
+    return;
+  }
+  const pend = snap.data();
+  const dSnap = await db.collection("households").doc(usuario.fzCode).collection("fz_deudas").doc(deudaId).get();
+  const nombre = dSnap.exists ? dSnap.data().nombre : "?";
+  await finalizarGasto(usuario, { ...pend, tarjetaId: deudaId }, chatId, nombre);
+  await pendienteRef(chatId).delete();
+}
+
+// --- /gasto: registro final, ya con tipo + forma de pago + (si aplica) tarjeta resueltos ---
+async function finalizarGasto(usuario, pend, chatId, tarjetaNombre) {
   const nuevoGasto = {
     id: uid(),
-    tipo,
-    concepto: conceptoRaw,
-    presupuestado: monto,
-    gastado: monto,
+    tipo: pend.tipo,
+    concepto: pend.concepto,
+    presupuestado: pend.monto,
+    gastado: pend.monto,
     acumulador: false,
     miniConceptos: [],
-    formaPago,
-    tarjetaId,
+    formaPago: pend.formaPago,
+    tarjetaId: pend.tarjetaId || null,
     montoCapital: null,
     metaAhorroId: null,
     pagado: true
   };
-
-  const detalle = formaPago === "efectivo"
-    ? "Efectivo"
-    : `${formaPago === "cargo" ? "Cargo" : "Pago"} → ${tarjetaNombre}`;
-
+  const detalle = pend.formaPago === "efectivo" ? "Efectivo" : `Cargo → ${tarjetaNombre}`;
   await insertarGasto(usuario, nuevoGasto, chatId, (periodo) =>
-    `✅ Agregado a "${periodo.label || periodo.fechaInicio}": ${conceptoRaw} — ${money(monto)} (${tipo}, ${detalle})`);
+    `✅ Agregado a "${periodo.label || periodo.fechaInicio}": ${pend.concepto} — ${money(pend.monto)} (${pend.tipo}, ${detalle})`);
 }
 
 // --- /pago: paso 1, el usuario escribe el monto ---
@@ -303,6 +328,14 @@ exports.telegramWebhook = onRequest({ secrets: ["TELEGRAM_BOT_TOKEN"] }, async (
         await manejarPagoCategoria(usuario, parseFloat(partes[1]), partes[2], chatId);
       } else if (partes[0] === "pagodeuda") {
         await manejarPagoDeuda(usuario, parseFloat(partes[1]), partes[2], chatId);
+      } else if (partes[0] === "gtipo") {
+        await manejarGastoTipo(usuario, partes[1], chatId);
+      } else if (partes[0] === "gforma") {
+        await manejarGastoForma(usuario, partes[1], chatId);
+      } else if (partes[0] === "gcat") {
+        await manejarGastoCategoria(usuario, partes[1], chatId);
+      } else if (partes[0] === "gdeuda") {
+        await manejarGastoDeuda(usuario, partes[1], chatId);
       }
       res.status(200).send("ok");
       return;
@@ -327,15 +360,14 @@ exports.telegramWebhook = onRequest({ secrets: ["TELEGRAM_BOT_TOKEN"] }, async (
 
     if (texto.startsWith("/gasto")) {
       const resto = texto.replace(/^\/gasto/, "").trim();
-      const partes = resto.split(",");
-      await manejarGasto(usuario, partes, chatId);
+      await manejarGastoInicio(usuario, resto, chatId);
     } else if (texto.startsWith("/pago")) {
       const resto = texto.replace(/^\/pago/, "").trim();
       await manejarPago(usuario, resto, chatId);
     } else if (texto.startsWith("/saldo")) {
       await manejarSaldo(usuario, chatId);
     } else if (texto.startsWith("/start")) {
-      await enviarMensaje(chatId, `Hola ${usuario.nombre} 👋\n\nComandos disponibles:\n/gasto Concepto, Monto, Tipo, FormaPago, Tarjeta\n/pago Monto (te muestro botones para elegir la deuda)\n/saldo`);
+      await enviarMensaje(chatId, `Hola ${usuario.nombre} 👋\n\nComandos disponibles:\n/gasto Concepto, Monto (te pregunto tipo, forma de pago y tarjeta con botones)\n/pago Monto (te muestro botones para elegir la deuda)\n/saldo`);
     } else {
       await enviarMensaje(chatId, "No reconozco ese comando. Usa /gasto, /pago o /saldo.");
     }

@@ -2,12 +2,12 @@
   "name": "functions",
   "description": "Bot de Telegram para Finanzas (Semana app)",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {
-    "firebase-admin": "^12.1.0",
-    "firebase-functions": "^5.0.0"
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^7.3.2"
   },
   "private": true
 }
