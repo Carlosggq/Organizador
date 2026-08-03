@@ -685,6 +685,23 @@ function renderQuincenaScreen() {
 
   let html = vistaTabsHtml;
 
+  html += `<div class="fz-quincena-picker">
+    <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
+    <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
+      <div class="fz-qp-label">${q.label || (fechaCorta(q.fechaInicio) + ' - ' + fechaCorta(q.fechaFin))}</div>
+      <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
+    </div>
+    <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
+    ${isLast ? `<span class="fz-qp-add" onclick="openQuincenaModal(null)" title="${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}">+</span>` : ''}
+  </div>`;
+
+  if (cargoCount > 0) {
+    html += `<div class="fz-alert-banner" style="background:var(--bg3);border-color:var(--border2);color:var(--text2)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — ya cuentan como gasto real, y además suben el saldo de esa tarjeta. Revisa el resumen de abajo para no rebasar tu buffer.</span>
+    </div>`;
+  }
+
   html += `<div class="fz-hero">
     <div class="fz-hero-label">DISPONIBLE PARA GASTAR</div>
     <div class="fz-hero-row">
@@ -696,26 +713,6 @@ function renderQuincenaScreen() {
       <div class="fz-hero-value">${money(totalGastado)}</div>
     </div>
   </div>`;
-
-  html += `<div class="fz-quincena-picker">
-    <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
-    <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
-      <div class="fz-qp-label">${q.label || (fechaCorta(q.fechaInicio) + ' - ' + fechaCorta(q.fechaFin))}</div>
-      <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
-    </div>
-    <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
-  </div>`;
-
-  if (isLast) {
-    html += `<button class="fz-add-gasto-btn" style="margin-bottom:12px" onclick="openQuincenaModal(null)">+ ${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}</button>`;
-  }
-
-  if (cargoCount > 0) {
-    html += `<div class="fz-alert-banner" style="background:var(--bg3);border-color:var(--border2);color:var(--text2)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      <span>${cargoCount} concepto(s) cargados a tarjeta esta quincena — ya cuentan como gasto real, y además suben el saldo de esa tarjeta. Revisa el resumen de abajo para no rebasar tu buffer.</span>
-    </div>`;
-  }
 
   html += `<h1 style="margin:18px 0 10px">Resumen</h1>`;
 
