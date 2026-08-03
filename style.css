@@ -250,7 +250,7 @@
 .fz-quincena-picker .fz-qp-sub { font-size:11px; color:var(--text2); margin-top:1px; }
 .fz-qp-arrow { color:var(--text3); font-size:20px; padding:4px 10px; cursor:pointer; user-select:none; }
 .fz-qp-arrow:active { color:var(--text2); }
-.fz-qp-add { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; border:1.5px dashed var(--teal); background:transparent; color:var(--teal-light); font-size:16px; font-weight:600; cursor:pointer; user-select:none; flex-shrink:0; }
+.fz-qp-add { display:flex; align-items:center; justify-content:center; border-radius:12px; border:1.5px dashed var(--teal); background:transparent; color:var(--teal-light); font-size:20px; font-weight:600; cursor:pointer; user-select:none; }
 .fz-qp-add:active { background:var(--teal2); }
 
 .fz-summary-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:14px; display:flex; align-items:center; gap:16px; }

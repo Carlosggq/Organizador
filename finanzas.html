@@ -685,14 +685,16 @@ function renderQuincenaScreen() {
 
   let html = vistaTabsHtml;
 
-  html += `<div class="fz-quincena-picker">
-    <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
-    <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
-      <div class="fz-qp-label">${q.label || (fechaCorta(q.fechaInicio) + ' - ' + fechaCorta(q.fechaFin))}</div>
-      <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
+  html += `<div style="display:flex;gap:8px;margin-bottom:12px">
+    <div class="fz-quincena-picker" style="flex:${isLast ? '0 0 90%' : '1'};margin-bottom:0">
+      <span class="fz-qp-arrow" onclick="changeQuincena(-1)" style="visibility:${isFirst?'hidden':'visible'}">&larr;</span>
+      <div style="text-align:center;flex:1" onclick="openQuincenaModal('${q.id}')">
+        <div class="fz-qp-label">${q.label || (fechaCorta(q.fechaInicio) + ' - ' + fechaCorta(q.fechaFin))}</div>
+        <div class="fz-qp-sub">Toca para editar ingresos / ahorros</div>
+      </div>
+      <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
     </div>
-    <span class="fz-qp-arrow" onclick="changeQuincena(1)" style="visibility:${isLast?'hidden':'visible'}">&rarr;</span>
-    ${isLast ? `<span class="fz-qp-add" onclick="openQuincenaModal(null)" title="${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}">+</span>` : ''}
+    ${isLast ? `<div class="fz-qp-add" style="flex:0 0 10%" onclick="openQuincenaModal(null)" title="${state.vistaPeriodo === 'semanal' ? 'Nueva semana' : 'Nueva quincena'}">+</div>` : ''}
   </div>`;
 
   if (cargoCount > 0) {
