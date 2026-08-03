@@ -787,9 +787,13 @@ function gastoTarjetaBadge(g) {
     const aplicado = !!g.pagado;
     return `<span class="fz-gasto-tc" style="${aplicado ? 'background:var(--teal2);color:var(--teal-light)' : 'opacity:.55;border:1px dashed var(--teal-light);background:transparent;color:var(--teal-light)'}">Ahorro &rarr; ${nombre}${aplicado ? '' : ' (plan)'}</span>`;
   }
-  if (!g.formaPago || g.formaPago === 'efectivo') return '';
+  if (!g.tarjetaId) return '';
   const d = state.deudas.find(x => x.id === g.tarjetaId);
   const nombre = d ? d.nombre : '?';
+  if (!g.formaPago || g.formaPago === 'efectivo') {
+    // Vínculo solo visual (ej. "Gastos extra" del coche) — no afecta saldo ni T. Gastos.
+    return `<span class="fz-gasto-tc" style="opacity:.85;border:1px dashed currentColor;background:transparent">&rarr; ${nombre}</span>`;
+  }
   const aplicado = !!g.pagado;
   const estilo = aplicado ? '' : 'style="opacity:.55;border:1px dashed currentColor;background:transparent"';
   const sufijo = aplicado ? '' : ' (plan)';
@@ -814,7 +818,8 @@ function updateGastoTarjetaVisibility() {
   const tarjetaSel = document.getElementById('g-tarjetaid');
   const metaSel = document.getElementById('g-metaahorro');
   const capFields = document.getElementById('g-capital-fields');
-  tarjetaSel.style.display = (fp === 'cargo' || fp === 'pago') ? '' : 'none';
+  // Siempre visible: en Cargo/Pago afecta saldo; en Efectivo es solo un vínculo visual (badge), sin efecto en cálculos.
+  tarjetaSel.style.display = '';
   metaSel.style.display = (fp === 'efectivo') ? '' : 'none';
   if (metaSel.style.display === 'none') metaSel.value = '';
   let showCapital = false;
@@ -1044,7 +1049,7 @@ function confirmGasto() {
     miniConceptos,
     gastado: acumulador ? miniConceptos.reduce((s,m) => s + (Number(m.monto)||0), 0) : (parseFloat(document.getElementById('g-gastado').value) || 0),
     formaPago,
-    tarjetaId: (formaPago === 'cargo' || formaPago === 'pago') ? document.getElementById('g-tarjetaid').value : null,
+    tarjetaId: document.getElementById('g-tarjetaid').value || null,
     montoCapital: (capitalVisible && capitalRaw !== '') ? parseFloat(capitalRaw) : null,
     metaAhorroId: (formaPago === 'efectivo' && document.getElementById('g-metaahorro').value) ? document.getElementById('g-metaahorro').value : null,
     pagado: document.getElementById('g-pagado').checked
