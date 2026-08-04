@@ -5,21 +5,58 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Semana">
+<meta name="apple-mobile-web-app-title" content="Proyectos">
 <meta name="theme-color" content="#0f0f14">
-<title>Organización — Semana</title>
+<title>Organización — Proyectos</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="proj-drawer-overlay" id="proj-drawer-overlay" onclick="closeProjectDrawer()"></div>
+<div class="proj-drawer" id="proj-drawer">
+  <div class="proj-drawer-head">
+    <h2>Proyectos</h2>
+    <button class="proj-drawer-close" onclick="closeProjectDrawer()">&#10005;</button>
+  </div>
+  <a href="index.html" class="proj-drawer-item">
+    <div class="proj-drawer-icon" style="background:var(--bg3);color:var(--text2)">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </div>
+    <span class="proj-drawer-label">Inicio</span>
+  </a>
+  <a href="organizacion.html" class="proj-drawer-item active">
+    <div class="proj-drawer-icon" style="background:var(--teal2);color:var(--teal-light)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    </div>
+    <span class="proj-drawer-label">Organización</span>
+  </a>
+  <a href="negocios.html" class="proj-drawer-item">
+    <div class="proj-drawer-icon" style="background:var(--blue);color:var(--blue-light)">
+      <svg viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h4v-6h6v6h4a1 1 0 001-1V9M3 9h18"/></svg>
+    </div>
+    <span class="proj-drawer-label">Negocios</span>
+  </a>
+  <a href="finanzas.html" class="proj-drawer-item">
+    <div class="proj-drawer-icon" style="background:var(--purple);color:var(--purple-light)">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+    </div>
+    <span class="proj-drawer-label">Finanzas Personales</span>
+  </a>
+</div>
+<script>
+function openProjectDrawer(){document.getElementById('proj-drawer').classList.add('open');document.getElementById('proj-drawer-overlay').classList.add('open');}
+function closeProjectDrawer(){document.getElementById('proj-drawer').classList.remove('open');document.getElementById('proj-drawer-overlay').classList.remove('open');}
+</script>
 <div id="app">
 
   <!-- SCREEN: HOY -->
   <div class="screen active" id="screen-hoy">
     <div class="header">
       <div class="header-left">
-        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <h1 id="today-title">Martes</h1>
         <p id="today-subtitle">24 de junio · Sem 26</p>
       </div>
@@ -57,7 +94,9 @@
   <div class="screen" id="screen-semana">
     <div class="header">
       <div class="header-left">
-        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <h1 id="week-title">Semana</h1>
         <p id="week-subtitle"></p>
       </div>
@@ -80,7 +119,9 @@
   <div class="screen" id="screen-stats">
     <div class="header">
       <div class="header-left">
-        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <h1>Mis stats</h1>
         <p id="stats-subtitle">Últimas semanas</p>
       </div>
@@ -104,7 +145,9 @@
   <div class="screen" id="screen-ajustes">
     <div class="header">
       <div class="header-left">
-        <a href="index.html" class="back-link">&larr; Inicio</a>
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <h1>Ajustes</h1>
         <p>Gestiona tu rutina</p>
       </div>

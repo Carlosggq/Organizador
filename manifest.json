@@ -1,6 +1,6 @@
 {
-  "name": "Semana — Objetivos Semanales",
-  "short_name": "Semana",
+  "name": "Proyectos",
+  "short_name": "Proyectos",
   "description": "Seguimiento de objetivos y tareas semanales",
   "start_url": "./index.html",
   "display": "standalone",
