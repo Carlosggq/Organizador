@@ -51,7 +51,7 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
 <div id="app">
 
   <!-- SCREEN: NEGOCIOS -->
-  <div class="screen active" id="screen-negocios">
+  <div class="screen active" id="screen-movimientos">
     <div class="header">
       <div class="header-left">
         <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
@@ -68,13 +68,6 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
       <div id="biz-cash-section"></div>
       <div class="section-title">Registros</div>
       <div id="biz-list-container"></div>
-      <div class="settings-row" onclick="openCostosModal()">
-        <div>
-          <div class="settings-label">Costos y materia prima</div>
-          <div class="settings-sub">Calcula el costo unitario de cada producto</div>
-        </div>
-        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-      </div>
       <div class="settings-row" onclick="document.getElementById('import-excel-input').click()" style="margin-top:16px">
         <div>
           <div class="settings-label">Importar desde Excel</div>
@@ -98,6 +91,39 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
         <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
     </div>
+    <nav class="nav-bar" id="neg-nav-movimientos"></nav>
+  </div>
+
+  <div class="screen" id="screen-costos">
+    <div class="header">
+      <div class="header-left">
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <h1>Costos</h1>
+        <p>Materia prima y su costo unitario</p>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div id="costos-screen-content"></div>
+    </div>
+    <nav class="nav-bar" id="neg-nav-costos"></nav>
+  </div>
+
+  <div class="screen" id="screen-recetas">
+    <div class="header">
+      <div class="header-left">
+        <button class="hamburger-btn" onclick="openProjectDrawer()" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <h1>Recetas</h1>
+        <p>Costo unitario de cada producto</p>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div id="recetas-screen-content"></div>
+    </div>
+    <nav class="nav-bar" id="neg-nav-recetas"></nav>
   </div>
 
 </div>
@@ -132,18 +158,6 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeBizModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmAddBiz()">Agregar</button>
-    </div>
-  </div>
-</div>
-
-<!-- COSTOS / MATERIA PRIMA MODAL -->
-<div class="modal-overlay" id="costos-modal-overlay">
-  <div class="modal" style="max-height:85vh;overflow-y:auto">
-    <h3>Costos y materia prima</h3>
-    <div class="biz-tabs" id="costos-tabs" style="margin-bottom:12px"></div>
-    <div id="costos-content"></div>
-    <div class="modal-btns">
-      <button class="btn btn-cancel" onclick="closeCostosModal()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -228,7 +242,7 @@ let state = {
   negMateriaPrima: load('negMateriaPrima', []),
   negocioView: load('negocioView', 'todos'),
   efectivoTarjeta: load('efectivoTarjeta', { boneless: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 }, postres: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 } }),
-  currentScreen: 'negocios'
+  currentScreen: 'movimientos'
 };
 
 const SABORES_BONELESS = ['BBQ', 'Original', 'Hot Nuts', 'Mango Habanero', 'Cheetos Flaming Hot'];
@@ -290,20 +304,23 @@ function attachNegociosListeners() {
       save('negProductos', state.negProductos);
       seedProductosIniciales();
       if (document.getElementById('biz-producto')) populateProductoSelect();
-      if (state.currentScreen === 'negocios') renderNegocios();
+      if (state.currentScreen === 'movimientos') renderNegocios();
+      if (state.currentScreen === 'recetas') renderRecetasScreen();
     }, err => console.error(err));
 
   fsUnsubMateriaPrima = db.collection('households').doc(negociosCode).collection('neg_materiaprima')
     .onSnapshot(snap => {
       state.negMateriaPrima = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       save('negMateriaPrima', state.negMateriaPrima);
+      if (state.currentScreen === 'costos') renderCostosScreen();
+      if (state.currentScreen === 'recetas') renderRecetasScreen();
     }, err => console.error(err));
 
   fsUnsubRegistros = db.collection('households').doc(negociosCode).collection('registros')
     .onSnapshot(snap => {
       state.negocios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       save('negocios', state.negocios);
-      if (state.currentScreen === 'negocios') renderNegocios();
+      if (state.currentScreen === 'movimientos') renderNegocios();
       updateSyncChip(true);
     }, err => { console.error(err); updateSyncChip(false); });
 
@@ -312,7 +329,7 @@ function attachNegociosListeners() {
       if (snap.exists) {
         state.efectivoTarjeta = snap.data();
         save('efectivoTarjeta', state.efectivoTarjeta);
-        if (state.currentScreen === 'negocios') renderNegocios();
+        if (state.currentScreen === 'movimientos') renderNegocios();
       }
     }, err => console.error(err));
 }
@@ -435,6 +452,7 @@ function switchNegocioView(view) {
 }
 
 function renderNegocios() {
+  renderNegNavBar('neg-nav-movimientos', 'movimientos');
   const view = state.negocioView || 'todos';
 
   const codeLabel = document.getElementById('biz-code-label');
@@ -587,27 +605,42 @@ function bizItemHTML(r, view) {
   </div>`;
 }
 
-/* ====== COSTOS Y MATERIA PRIMA ====== */
-let costosTab = 'materiaprima';
+/* ====== NAVEGACIÓN ENTRE PANTALLAS (Movimientos / Costos / Recetas) ====== */
+function renderNegNavBar(containerId, active) {
+  const navHTML = `
+    <div class="nav-item ${active==='movimientos'?'active':''}" onclick="switchNegScreen('movimientos')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h4v-6h6v6h4a1 1 0 001-1V9M3 9h18"/></svg>
+      <span>Movimientos</span>
+    </div>
+    <div class="nav-item ${active==='costos'?'active':''}" onclick="switchNegScreen('costos')">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 3 4-6"/></svg>
+      <span>Costos</span>
+    </div>
+    <div class="nav-item ${active==='recetas'?'active':''}" onclick="switchNegScreen('recetas')">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+      <span>Recetas</span>
+    </div>`;
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = navHTML;
+}
 
-function openCostosModal() {
-  costosTab = 'materiaprima';
-  renderCostosModal();
-  document.getElementById('costos-modal-overlay').classList.add('open');
-}
-function closeCostosModal() {
-  document.getElementById('costos-modal-overlay').classList.remove('open');
-}
-function switchCostosTab(t) {
-  costosTab = t;
-  renderCostosModal();
+function switchNegScreen(name) {
+  state.currentScreen = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'movimientos') renderNegocios();
+  else if (name === 'costos') renderCostosScreen();
+  else if (name === 'recetas') renderRecetasScreen();
 }
 
-function renderCostosModal() {
-  document.getElementById('costos-tabs').innerHTML = ['materiaprima', 'productos'].map(t =>
-    `<div class="biz-tab ${costosTab === t ? 'active' : ''}" onclick="switchCostosTab('${t}')">${t === 'materiaprima' ? 'Materia prima' : 'Costo por producto'}</div>`
-  ).join('');
-  document.getElementById('costos-content').innerHTML = costosTab === 'materiaprima' ? materiaPrimaHTML() : recetasHTML();
+function renderCostosScreen() {
+  renderNegNavBar('neg-nav-costos', 'costos');
+  document.getElementById('costos-screen-content').innerHTML = materiaPrimaHTML();
+}
+
+function renderRecetasScreen() {
+  renderNegNavBar('neg-nav-recetas', 'recetas');
+  document.getElementById('recetas-screen-content').innerHTML = recetasHTML();
 }
 
 function materiaPrimaHTML() {
@@ -642,13 +675,13 @@ function agregarMateriaPrima() {
   const nuevo = { nombre, costoTotal, rinde };
   if (db && negociosCode) {
     db.collection('households').doc(negociosCode).collection('neg_materiaprima').add(nuevo)
-      .then(() => renderCostosModal())
+      .then(() => renderCostosScreen())
       .catch(err => alert('No se pudo guardar: ' + err.message));
   } else {
     nuevo.id = 'mp' + Date.now();
     state.negMateriaPrima.push(nuevo);
     save('negMateriaPrima', state.negMateriaPrima);
-    renderCostosModal();
+    renderCostosScreen();
   }
 }
 
@@ -656,12 +689,12 @@ function eliminarMateriaPrima(id) {
   if (!confirm('¿Eliminar esta materia prima? Los productos que la usan en su receta perderán ese ingrediente del cálculo de costo.')) return;
   if (db && negociosCode) {
     db.collection('households').doc(negociosCode).collection('neg_materiaprima').doc(id).delete()
-      .then(() => renderCostosModal())
+      .then(() => renderCostosScreen())
       .catch(err => alert('Error: ' + err.message));
   } else {
     state.negMateriaPrima = state.negMateriaPrima.filter(m => m.id !== id);
     save('negMateriaPrima', state.negMateriaPrima);
-    renderCostosModal();
+    renderCostosScreen();
   }
 }
 
@@ -713,13 +746,13 @@ function quitarRecetaItem(productoId, idx) {
 function guardarRecetaProducto(productoId, receta) {
   if (db && negociosCode) {
     db.collection('households').doc(negociosCode).collection('neg_productos').doc(productoId).update({ receta })
-      .then(() => renderCostosModal())
+      .then(() => renderRecetasScreen())
       .catch(err => alert('Error: ' + err.message));
   } else {
     const producto = state.negProductos.find(p => p.id === productoId);
     if (producto) producto.receta = receta;
     save('negProductos', state.negProductos);
-    renderCostosModal();
+    renderRecetasScreen();
   }
 }
 
