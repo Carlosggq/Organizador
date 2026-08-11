@@ -68,6 +68,13 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
       <div id="biz-cash-section"></div>
       <div class="section-title">Registros</div>
       <div id="biz-list-container"></div>
+      <div class="settings-row" onclick="openCostosModal()">
+        <div>
+          <div class="settings-label">Costos y materia prima</div>
+          <div class="settings-sub">Calcula el costo unitario de cada producto</div>
+        </div>
+        <svg class="settings-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
       <div class="settings-row" onclick="document.getElementById('import-excel-input').click()" style="margin-top:16px">
         <div>
           <div class="settings-label">Importar desde Excel</div>
@@ -104,13 +111,19 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
       <option value="venta">Venta</option>
       <option value="ganancia">Ganancia</option>
     </select>
-    <select id="biz-negocio">
+    <select id="biz-negocio" onchange="populateProductoSelect();onProductoChange()">
       <option value="boneless">Boneless</option>
       <option value="postres">Postres</option>
     </select>
     <input type="date" id="biz-fecha">
     <input type="number" id="biz-monto" placeholder="Monto ($)" inputmode="decimal" step="0.01" min="0">
     <input type="text" id="biz-concepto" placeholder="Concepto (ej. Boneless 500g x2)" maxlength="60">
+    <select id="biz-producto" onchange="onProductoChange()" style="display:none"></select>
+    <input type="number" id="biz-cantidad" placeholder="Cantidad" min="1" step="1" style="display:none">
+    <div id="biz-sabores-wrap" style="display:none">
+      <div style="font-size:12px;color:var(--text2);margin:8px 0 4px">Sabores (uno o más)</div>
+      <div id="biz-sabores-chips" class="biz-sabores-chips"></div>
+    </div>
     <input type="text" id="biz-persona" placeholder="Nombre de la persona" maxlength="40">
     <select id="biz-status">
       <option value="pagado">Pagado</option>
@@ -119,6 +132,18 @@ function closeProjectDrawer(){document.getElementById('proj-drawer').classList.r
     <div class="modal-btns">
       <button class="btn btn-cancel" onclick="closeBizModal()">Cancelar</button>
       <button class="btn btn-confirm" onclick="confirmAddBiz()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- COSTOS / MATERIA PRIMA MODAL -->
+<div class="modal-overlay" id="costos-modal-overlay">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <h3>Costos y materia prima</h3>
+    <div class="biz-tabs" id="costos-tabs" style="margin-bottom:12px"></div>
+    <div id="costos-content"></div>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeCostosModal()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -199,10 +224,15 @@ function getDayKey(date) {
 
 let state = {
   negocios: load('negocios', []),
+  negProductos: load('negProductos', []),
+  negMateriaPrima: load('negMateriaPrima', []),
   negocioView: load('negocioView', 'todos'),
   efectivoTarjeta: load('efectivoTarjeta', { boneless: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 }, postres: { efectivo: 0, tarjeta: 0, ajusteInicial: 0 } }),
   currentScreen: 'negocios'
 };
+
+const SABORES_BONELESS = ['BBQ', 'Original', 'Hot Nuts', 'Mango Habanero', 'Cheetos Flaming Hot'];
+let seedIntentado = false;
 
 const BIZ_LABEL = { compra: 'Compra', venta: 'Venta', ganancia: 'Ganancia' };
 const BIZ_CLASS = { compra: 'biz-compra', venta: 'biz-venta', ganancia: 'biz-ganancia' };
@@ -221,6 +251,8 @@ let firebaseReady = false;
 let negociosCode = localStorage.getItem('negociosCode') || null;
 let fsUnsubRegistros = null;
 let fsUnsubCash = null;
+let fsUnsubProductos = null;
+let fsUnsubMateriaPrima = null;
 
 function firebaseConfigured() {
   return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'TU_API_KEY_AQUI';
@@ -249,6 +281,23 @@ function attachNegociosListeners() {
   if (!db || !negociosCode) return;
   if (fsUnsubRegistros) fsUnsubRegistros();
   if (fsUnsubCash) fsUnsubCash();
+  if (fsUnsubProductos) fsUnsubProductos();
+  if (fsUnsubMateriaPrima) fsUnsubMateriaPrima();
+
+  fsUnsubProductos = db.collection('households').doc(negociosCode).collection('neg_productos')
+    .onSnapshot(snap => {
+      state.negProductos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      save('negProductos', state.negProductos);
+      seedProductosIniciales();
+      if (document.getElementById('biz-producto')) populateProductoSelect();
+      if (state.currentScreen === 'negocios') renderNegocios();
+    }, err => console.error(err));
+
+  fsUnsubMateriaPrima = db.collection('households').doc(negociosCode).collection('neg_materiaprima')
+    .onSnapshot(snap => {
+      state.negMateriaPrima = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      save('negMateriaPrima', state.negMateriaPrima);
+    }, err => console.error(err));
 
   fsUnsubRegistros = db.collection('households').doc(negociosCode).collection('registros')
     .onSnapshot(snap => {
@@ -266,6 +315,22 @@ function attachNegociosListeners() {
         if (state.currentScreen === 'negocios') renderNegocios();
       }
     }, err => console.error(err));
+}
+
+// Solo la primera vez que el catálogo está vacío en Firestore, precarga los productos base.
+function seedProductosIniciales() {
+  if (seedIntentado || !db || !negociosCode) return;
+  seedIntentado = true;
+  if (state.negProductos.length > 0) return;
+  const defaults = [
+    { nombre: 'Pay Limón', categoria: 'postres', receta: [] },
+    { nombre: 'Huevo con Jamón', categoria: 'postres', receta: [] },
+    { nombre: 'Hot Cakes', categoria: 'postres', receta: [] },
+    { nombre: 'Boneless 250gr', categoria: 'boneless', receta: [] },
+    { nombre: 'Boneless 500gr', categoria: 'boneless', receta: [] }
+  ];
+  const col = db.collection('households').doc(negociosCode).collection('neg_productos');
+  defaults.forEach(p => col.add(p).catch(err => console.error('Error sembrando producto', err)));
 }
 
 function updateSyncChip(ok) {
@@ -503,6 +568,10 @@ function bizItemHTML(r, view) {
     statusHTML = `<span class="biz-status ${r.status}" onclick="toggleRegistroStatus('${r.id}')">${r.status === 'pagado' ? 'Pagado' : 'Adeudo'}</span>`;
   }
 
+  const gananciaHTML = (r.tipo === 'venta' && r.ganancia != null)
+    ? `<div class="biz-item-ganancia" style="font-size:11px;margin-top:2px;color:${r.ganancia >= 0 ? 'var(--teal-light)' : 'var(--coral-light)'}">Ganancia: ${fmtMoney(r.ganancia)} · costo ${fmtMoney(r.costoTotal)}</div>`
+    : '';
+
   return `<div class="biz-item">
     <div class="biz-item-body">
       <div class="biz-item-title">
@@ -511,10 +580,147 @@ function bizItemHTML(r, view) {
         ${statusHTML}
       </div>
       <div class="biz-item-meta">${title}</div>
+      ${gananciaHTML}
     </div>
     <div class="biz-item-amount ${amountClass}">${sign}${fmtMoney(r.monto)}</div>
     <span class="biz-item-del" onclick="deleteRegistro('${r.id}')">×</span>
   </div>`;
+}
+
+/* ====== COSTOS Y MATERIA PRIMA ====== */
+let costosTab = 'materiaprima';
+
+function openCostosModal() {
+  costosTab = 'materiaprima';
+  renderCostosModal();
+  document.getElementById('costos-modal-overlay').classList.add('open');
+}
+function closeCostosModal() {
+  document.getElementById('costos-modal-overlay').classList.remove('open');
+}
+function switchCostosTab(t) {
+  costosTab = t;
+  renderCostosModal();
+}
+
+function renderCostosModal() {
+  document.getElementById('costos-tabs').innerHTML = ['materiaprima', 'productos'].map(t =>
+    `<div class="biz-tab ${costosTab === t ? 'active' : ''}" onclick="switchCostosTab('${t}')">${t === 'materiaprima' ? 'Materia prima' : 'Costo por producto'}</div>`
+  ).join('');
+  document.getElementById('costos-content').innerHTML = costosTab === 'materiaprima' ? materiaPrimaHTML() : recetasHTML();
+}
+
+function materiaPrimaHTML() {
+  const rows = state.negMateriaPrima.map(m => {
+    const costoUnit = m.rinde ? (m.costoTotal / m.rinde) : 0;
+    return `<div class="mp-row">
+      <div class="mp-row-body">
+        <div class="mp-row-nombre">${m.nombre}</div>
+        <div class="mp-row-sub">${fmtMoney(m.costoTotal)} · rinde para ${m.rinde} · ${fmtMoney(costoUnit)}/u</div>
+      </div>
+      <span class="biz-item-del" onclick="eliminarMateriaPrima('${m.id}')">×</span>
+    </div>`;
+  }).join('') || `<p style="font-size:12px;color:var(--text3);padding:8px 0">Aún no agregas materia prima.</p>`;
+
+  return `${rows}
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="mp-nombre" placeholder="Ej. Bolsa de pechuga 1kg" maxlength="50">
+      <input type="number" id="mp-costo" placeholder="Costo total de la compra ($)" inputmode="decimal" step="0.01" min="0">
+      <input type="number" id="mp-rinde" placeholder="Para cuántas piezas/porciones alcanza" min="1" step="1">
+      <button class="add-task-btn" onclick="agregarMateriaPrima()" style="color:var(--blue-light);border-color:var(--blue)">+ Agregar materia prima</button>
+    </div>`;
+}
+
+function agregarMateriaPrima() {
+  const nombre = document.getElementById('mp-nombre').value.trim();
+  const costoTotal = parseFloat(document.getElementById('mp-costo').value);
+  const rinde = parseInt(document.getElementById('mp-rinde').value, 10);
+  if (!nombre || isNaN(costoTotal) || costoTotal <= 0 || isNaN(rinde) || rinde <= 0) {
+    alert('Completa nombre, costo y para cuántas piezas alcanza.');
+    return;
+  }
+  const nuevo = { nombre, costoTotal, rinde };
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('neg_materiaprima').add(nuevo)
+      .then(() => renderCostosModal())
+      .catch(err => alert('No se pudo guardar: ' + err.message));
+  } else {
+    nuevo.id = 'mp' + Date.now();
+    state.negMateriaPrima.push(nuevo);
+    save('negMateriaPrima', state.negMateriaPrima);
+    renderCostosModal();
+  }
+}
+
+function eliminarMateriaPrima(id) {
+  if (!confirm('¿Eliminar esta materia prima? Los productos que la usan en su receta perderán ese ingrediente del cálculo de costo.')) return;
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('neg_materiaprima').doc(id).delete()
+      .then(() => renderCostosModal())
+      .catch(err => alert('Error: ' + err.message));
+  } else {
+    state.negMateriaPrima = state.negMateriaPrima.filter(m => m.id !== id);
+    save('negMateriaPrima', state.negMateriaPrima);
+    renderCostosModal();
+  }
+}
+
+function recetasHTML() {
+  return state.negProductos.map(p => {
+    const costo = calcularCostoUnitario(p);
+    const itemsHTML = (p.receta || []).map((item, idx) => {
+      const mp = state.negMateriaPrima.find(m => m.id === item.materiaPrimaId);
+      return `<div class="mp-row">
+        <div class="mp-row-body">
+          <div class="mp-row-nombre">${mp ? mp.nombre : '(materia prima eliminada)'}</div>
+          <div class="mp-row-sub">${item.cantidad} unidad(es)</div>
+        </div>
+        <span class="biz-item-del" onclick="quitarRecetaItem('${p.id}', ${idx})">×</span>
+      </div>`;
+    }).join('');
+    const mpOptions = state.negMateriaPrima.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+    return `<div class="mp-producto-card">
+      <div class="mp-producto-head">
+        <strong>${p.nombre}</strong>
+        <span style="font-size:12px;color:${costo != null ? 'var(--teal-light)' : 'var(--text3)'}">${costo != null ? fmtMoney(costo) + '/u' : 'Costo incompleto'}</span>
+      </div>
+      ${itemsHTML}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <select id="recmp-${p.id}" style="flex:1">${mpOptions || '<option value="">Agrega materia prima primero</option>'}</select>
+        <input type="number" id="reccant-${p.id}" placeholder="Cant." min="0.01" step="0.01" style="width:64px">
+        <button class="btn btn-confirm" style="padding:8px 10px;font-size:12px" onclick="agregarRecetaItem('${p.id}')">+</button>
+      </div>
+    </div>`;
+  }).join('') || `<p style="font-size:12px;color:var(--text3);padding:8px 0">Aún no hay productos en el catálogo.</p>`;
+}
+
+function agregarRecetaItem(productoId) {
+  const mpSel = document.getElementById(`recmp-${productoId}`);
+  const mpId = mpSel ? mpSel.value : '';
+  const cantidad = parseFloat(document.getElementById(`reccant-${productoId}`).value);
+  if (!mpId || isNaN(cantidad) || cantidad <= 0) { alert('Selecciona la materia prima y la cantidad que usa este producto.'); return; }
+  const producto = state.negProductos.find(p => p.id === productoId);
+  const receta = [...(producto.receta || []), { materiaPrimaId: mpId, cantidad }];
+  guardarRecetaProducto(productoId, receta);
+}
+
+function quitarRecetaItem(productoId, idx) {
+  const producto = state.negProductos.find(p => p.id === productoId);
+  const receta = (producto.receta || []).filter((_, i) => i !== idx);
+  guardarRecetaProducto(productoId, receta);
+}
+
+function guardarRecetaProducto(productoId, receta) {
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('neg_productos').doc(productoId).update({ receta })
+      .then(() => renderCostosModal())
+      .catch(err => alert('Error: ' + err.message));
+  } else {
+    const producto = state.negProductos.find(p => p.id === productoId);
+    if (producto) producto.receta = receta;
+    save('negProductos', state.negProductos);
+    renderCostosModal();
+  }
 }
 
 function toggleRegistroStatus(id) {
@@ -545,9 +751,76 @@ function deleteRegistro(id) {
 
 function updateBizModalFields() {
   const tipo = document.getElementById('biz-tipo').value;
-  document.getElementById('biz-concepto').style.display = (tipo === 'compra' || tipo === 'venta') ? 'block' : 'none';
-  document.getElementById('biz-persona').style.display = tipo === 'venta' ? 'block' : 'none';
-  document.getElementById('biz-status').style.display = tipo === 'venta' ? 'block' : 'none';
+  const esVenta = tipo === 'venta';
+  document.getElementById('biz-concepto').style.display = (tipo === 'compra') ? 'block' : 'none';
+  document.getElementById('biz-producto').style.display = esVenta ? 'block' : 'none';
+  document.getElementById('biz-cantidad').style.display = esVenta ? 'block' : 'none';
+  document.getElementById('biz-persona').style.display = esVenta ? 'block' : 'none';
+  document.getElementById('biz-status').style.display = esVenta ? 'block' : 'none';
+  if (esVenta) { populateProductoSelect(); onProductoChange(); }
+  else { document.getElementById('biz-sabores-wrap').style.display = 'none'; }
+}
+
+function populateProductoSelect() {
+  const sel = document.getElementById('biz-producto');
+  if (!sel) return;
+  const negocio = document.getElementById('biz-negocio').value;
+  const items = state.negProductos.filter(p => p.categoria === negocio);
+  sel.innerHTML = items.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')
+    + `<option value="__nuevo__">+ Agregar producto nuevo...</option>`;
+}
+
+function onProductoChange() {
+  const sel = document.getElementById('biz-producto');
+  if (!sel) return;
+  if (sel.value === '__nuevo__') {
+    const nombre = prompt('Nombre del nuevo producto:');
+    const negocio = document.getElementById('biz-negocio').value;
+    if (nombre && nombre.trim()) {
+      agregarProducto(nombre.trim(), negocio);
+    }
+    // El select se repuebla solo cuando llegue la confirmación de Firestore (o al instante en modo local).
+    sel.selectedIndex = 0;
+  }
+  const negocio = document.getElementById('biz-negocio').value;
+  const saboresWrap = document.getElementById('biz-sabores-wrap');
+  saboresWrap.style.display = negocio === 'boneless' ? 'block' : 'none';
+  if (negocio === 'boneless') renderSaboresChips();
+}
+
+function renderSaboresChips() {
+  const wrap = document.getElementById('biz-sabores-chips');
+  wrap.innerHTML = SABORES_BONELESS.map(s =>
+    `<span class="biz-sabor-chip" data-sabor="${s}" onclick="this.classList.toggle('active')">${s}</span>`
+  ).join('');
+}
+
+function getSaboresSeleccionados() {
+  return Array.from(document.querySelectorAll('.biz-sabor-chip.active')).map(el => el.dataset.sabor);
+}
+
+function agregarProducto(nombre, categoria) {
+  const nuevo = { nombre, categoria, receta: [] };
+  if (db && negociosCode) {
+    db.collection('households').doc(negociosCode).collection('neg_productos').add(nuevo)
+      .catch(err => alert('No se pudo guardar el producto: ' + err.message));
+  } else {
+    nuevo.id = 'p' + Date.now();
+    state.negProductos.push(nuevo);
+    save('negProductos', state.negProductos);
+    populateProductoSelect();
+  }
+}
+
+function calcularCostoUnitario(producto) {
+  if (!producto || !producto.receta || !producto.receta.length) return null;
+  let total = 0;
+  for (const item of producto.receta) {
+    const mp = state.negMateriaPrima.find(m => m.id === item.materiaPrimaId);
+    if (!mp || !mp.rinde) return null; // materia prima borrada o receta incompleta
+    total += (mp.costoTotal / mp.rinde) * item.cantidad;
+  }
+  return +total.toFixed(2);
 }
 
 function openBizModal() {
@@ -557,6 +830,7 @@ function openBizModal() {
   document.getElementById('biz-fecha').value = getDayKey(new Date());
   document.getElementById('biz-monto').value = '';
   document.getElementById('biz-concepto').value = '';
+  document.getElementById('biz-cantidad').value = 1;
   document.getElementById('biz-persona').value = '';
   document.getElementById('biz-status').value = 'pagado';
   updateBizModalFields();
@@ -575,13 +849,36 @@ function confirmAddBiz() {
 
   if (!fecha || isNaN(monto) || monto <= 0) return;
 
+  if (tipo === 'venta') {
+    const pid = document.getElementById('biz-producto').value;
+    if (!pid || pid === '__nuevo__') { alert('Selecciona un producto de la lista.'); return; }
+  }
+
   const registro = { tipo, negocio, fecha, monto };
   if (tipo === 'compra') {
     registro.concepto = document.getElementById('biz-concepto').value.trim();
   } else if (tipo === 'venta') {
     registro.persona = document.getElementById('biz-persona').value.trim();
     registro.status = document.getElementById('biz-status').value;
-    registro.concepto = document.getElementById('biz-concepto').value.trim();
+
+    const productoId = document.getElementById('biz-producto').value;
+    const producto = state.negProductos.find(p => p.id === productoId);
+    const cantidad = parseInt(document.getElementById('biz-cantidad').value, 10) || 1;
+    const sabores = negocio === 'boneless' ? getSaboresSeleccionados() : [];
+
+    registro.productoId = producto ? producto.id : null;
+    registro.cantidad = cantidad;
+    registro.sabores = sabores;
+    registro.concepto = (producto ? producto.nombre : '')
+      + (sabores.length ? ` (${sabores.join(', ')})` : '')
+      + (cantidad > 1 ? ` x${cantidad}` : '');
+
+    const costoUnitario = producto ? calcularCostoUnitario(producto) : null;
+    if (costoUnitario != null) {
+      registro.costoUnitario = costoUnitario;
+      registro.costoTotal = +(costoUnitario * cantidad).toFixed(2);
+      registro.ganancia = +(monto - registro.costoTotal).toFixed(2);
+    }
   }
 
   if (db && negociosCode) {

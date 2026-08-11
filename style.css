@@ -206,6 +206,18 @@
   .biz-amount-neg { color: var(--red-light); }
   .biz-item-del { color: var(--text3); font-size: 18px; line-height: 1; padding-left: 2px; cursor: pointer; flex-shrink: 0; }
 
+  .biz-sabores-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .biz-sabor-chip { font-size: 12px; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border2); color: var(--text2); cursor: pointer; user-select: none; }
+  .biz-sabor-chip.active { background: var(--teal2); color: var(--teal-light); border-color: var(--teal); }
+
+  .mp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
+  .mp-row-nombre { font-size: 13px; font-weight: 500; }
+  .mp-row-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .mp-producto-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .mp-producto-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .mp-producto-card select, .mp-producto-card input { background: var(--bg3); border: 0.5px solid var(--border2); color: var(--text); border-radius: 8px; padding: 8px; font-size: 12px; }
+
   .biz-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; font-weight: 500; cursor: default; }
   .biz-compra { background: var(--red); color: var(--red-light); }
   .biz-venta { background: var(--teal2); color: var(--teal-light); }
